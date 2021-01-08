@@ -46,13 +46,13 @@ def load_dataset(opt):
     elif opt.dataset == 'bair':
         from data.bair import RobotPush
         train_data = RobotPush(
-                data_root=opt.data_root,
                 train=True,
+                data_root=opt.data_root,
                 seq_len=opt.n_past+opt.n_future,
                 image_size=opt.image_width)
         test_data = RobotPush(
-                data_root=opt.data_root,
                 train=False,
+                data_root=opt.data_root,
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
     elif opt.dataset == 'kth':
@@ -68,7 +68,18 @@ def load_dataset(opt):
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
     elif opt.dataset == 'fabric-pure-random':
-        # from data.fabrics import FabricData
+        # Version we used for RSS 2020. Hard-coding image size of 56x56.
+        from data.fabrics import FabricsData
+        train_data = FabricsData(
+                train=True,
+                data_root=opt.data_root,
+                seq_len=opt.n_past+opt.n_future,
+                image_size=56)
+        test_data = FabricsData(
+                train=False,
+                data_root=opt.data_root,
+                seq_len=opt.n_eval,
+                image_size=56)
         raise NotImplementedError()
     else:
         raise ValueError(f'{opt.dataset} not supported')
