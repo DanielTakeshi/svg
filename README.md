@@ -49,6 +49,8 @@ python train_svg_fp.py --dataset kth --image_width  64 --model vgg --g_dim 128 -
 
 - [Installation](#installation)
 - [Stochastic Moving MNIST](#sm-mnist)
+- [BAIR Robot Push Data](#bair-data)
+- [Fabrics Data](#fabrics-data)
 
 ## Installation
 
@@ -126,6 +128,17 @@ log dir: /data/svg/logs//smmnist-2/model=dcgan64x64-rnn_size=256-predictor-poste
 
 However, one weird thing is that (a) we get `THCudaCheck FAIL` errors, and (b)
 the data seems to be downloaded again even if it's already there.
+
+
+## BAIR Data
+
+TODO
+
+
+
+## Fabrics Data
+
+TODO
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
