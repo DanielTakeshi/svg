@@ -75,14 +75,38 @@ conda activate svg
 
 Then, create the directory `/data/svg/` which should enable us to run scripts.
 
+If something wrong happens, just restart. :)
+
+```
+conda env remove -n svg
+```
+
 ## SM-MNIST
+
+This data (proposed in the SVG paper itself) is a *stochastic* version of
+"moving MNIST." Run this command for SVG-LP:
 
 ```
 python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 \
         --data_root /data/svg/mnist --log_dir /data/svg/logs/
 ```
 
-and it seems to be running:
+Note:
+
+- The paper tests with 1 or 2 moving digits (though I only see 2). Train models
+  to condition on 5 frames (`--n_past`) and predict the next 10 frames
+  (`--n_future`). *Evaluation* uses 30 frames (`n_eval`).
+- Uses a DCGAN model architecture for the *frame encoder*, the default for `--model`.
+- `|g|=128`, size of encoder output (so we go from image --> vector of this
+  size), and decoder input (vector of this size --> image)
+- `|z|=10`, the dimension of `z_t`, the latent variable at time `t`, so it's
+  sampled from a 10-D Gaussian prior.
+- When training, we can track qualitative progress (see `smnist-2/model-name/gen/`).
+- `--beta` is for the KL loss, `--beta1` (not shown here) is for the Adam
+  optimizer's momentum.
+- For this and other datasets, LSTMs use 256 cells in each layer.
+
+It seems to train:
 
 ```
 (svg) seita@starship:~/svg (master) $ python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 --data_root /data/svg/mnist/ --log_dir /data/svg/logs/
@@ -128,6 +152,23 @@ log dir: /data/svg/logs//smmnist-2/model=dcgan64x64-rnn_size=256-predictor-poste
 
 However, one weird thing is that (a) we get `THCudaCheck FAIL` errors, and (b)
 the data seems to be downloaded again even if it's already there.
+
+The data and log files look something like this:
+
+```
+/data/svg/mnist/
+    processed/
+        test.pt
+        training.pt
+    raw/
+        t10k-images-idx3-ubyte
+        t10k-labels-idx1-ubyte
+        train-images-idx3-ubyte
+        train-labels-idx1-ubyte
+/data/svg/logs/smmnist-2/
+    'model=dcgan64x64-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=5-n_future=10-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000'
+```
+
 
 
 ## BAIR Data
