@@ -84,11 +84,11 @@ conda env remove -n svg
 ## SM-MNIST
 
 This data (proposed in the SVG paper itself) is a *stochastic* version of
-"moving MNIST." Run this command for SVG-LP:
+"moving MNIST." Train SVG-LP:
 
 ```
 python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 \
-        --data_root /data/svg/mnist --log_dir /data/svg/logs/
+        --data_root /data/svg/smmnist --log_dir /data/svg/logs/
 ```
 
 Note:
@@ -105,6 +105,9 @@ Note:
 - `--beta` is for the KL loss, `--beta1` (not shown here) is for the Adam
   optimizer's momentum.
 - For this and other datasets, LSTMs use 256 cells in each layer.
+- Defaults to 300 epochs, with 600 batches per epoch, batch size is 100, which
+  sums to 60K items per epoch. Seems logical but I asusme there's a train/test
+  split.
 
 It seems to train:
 
@@ -150,8 +153,7 @@ log dir: /data/svg/logs//smmnist-2/model=dcgan64x64-rnn_size=256-predictor-poste
  72% (437 of 600) |####################################################################################################                                      | Elapsed Time: 0:09:08 ETA:   0:03:25
 ```
 
-However, one weird thing is that (a) we get `THCudaCheck FAIL` errors, and (b)
-the data seems to be downloaded again even if it's already there.
+However, we get `THCudaCheck FAIL` errors?
 
 The data and log files look something like this:
 
@@ -169,6 +171,9 @@ The data and log files look something like this:
     'model=dcgan64x64-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=5-n_future=10-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000'
 ```
 
+With SM-MNIST, however, the data is generated on-the-fly, according to the
+paper, which may explain some slow-downs. Each progress bar that fills up is
+one epoch.
 
 
 ## BAIR Data

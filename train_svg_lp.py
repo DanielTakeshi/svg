@@ -323,6 +323,7 @@ def train(x):
     decoder_optimizer.step()
     return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
+
 # --------- training loop ------------------------------------
 for epoch in range(opt.niter):
     frame_predictor.train()
@@ -333,6 +334,7 @@ for epoch in range(opt.niter):
     epoch_mse = 0
     epoch_kld = 0
     progress = progressbar.ProgressBar(max_value=opt.epoch_size).start()
+
     for i in range(opt.epoch_size):
         progress.update(i+1)
         x = next(training_batch_generator)

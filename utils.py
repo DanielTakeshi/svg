@@ -15,16 +15,18 @@ from skimage.measure import compare_ssim as ssim_metric
 from scipy import signal
 from scipy import ndimage
 from PIL import Image, ImageDraw
-
-
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import imageio
 
-
 hostname = socket.gethostname()
 
 def load_dataset(opt):
+    """Machinery for train/test data. Need special cases for each data type.
+
+    TODO: fabrics?
+    TODO: contrast with SV2P?
+    """
     if opt.dataset == 'smmnist':
         from data.moving_mnist import MovingMNIST
         train_data = MovingMNIST(
@@ -42,7 +44,7 @@ def load_dataset(opt):
                 deterministic=False,
                 num_digits=opt.num_digits)
     elif opt.dataset == 'bair':
-        from data.bair import RobotPush 
+        from data.bair import RobotPush
         train_data = RobotPush(
                 data_root=opt.data_root,
                 train=True,
@@ -54,18 +56,23 @@ def load_dataset(opt):
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
     elif opt.dataset == 'kth':
-        from data.kth import KTH 
+        from data.kth import KTH
         train_data = KTH(
-                train=True, 
+                train=True,
                 data_root=opt.data_root,
-                seq_len=opt.n_past+opt.n_future, 
+                seq_len=opt.n_past+opt.n_future,
                 image_size=opt.image_width)
         test_data = KTH(
-                train=False, 
+                train=False,
                 data_root=opt.data_root,
-                seq_len=opt.n_eval, 
+                seq_len=opt.n_eval,
                 image_size=opt.image_width)
-    
+    elif opt.dataset == 'fabric-pure-random':
+        # from data.fabrics import FabricData
+        raise NotImplementedError()
+    else:
+        raise ValueError(f'{opt.dataset} not supported')
+
     return train_data, test_data
 
 def sequence_input(seq, dtype):
@@ -245,11 +252,9 @@ def finn_eval_seq(gt, pred):
 
     return mse, ssim, psnr
 
-
 def finn_psnr(x, y):
     mse = ((x - y)**2).mean()
     return 10*np.log(1/mse)/np.log(10)
-
 
 def gaussian2(size, sigma):
     A = 1/(2.0*np.pi*sigma**2)
@@ -261,7 +266,7 @@ def fspecial_gauss(size, sigma):
     x, y = np.mgrid[-size//2 + 1:size//2 + 1, -size//2 + 1:size//2 + 1]
     g = np.exp(-((x**2 + y**2)/(2.0*sigma**2)))
     return g/g.sum()
-  
+
 def finn_ssim(img1, img2, cs_map=False):
     img1 = img1.astype(np.float64)
     img2 = img2.astype(np.float64)
@@ -283,12 +288,11 @@ def finn_ssim(img1, img2, cs_map=False):
     sigma12 = signal.fftconvolve(img1*img2, window, mode='valid') - mu1_mu2
     if cs_map:
         return (((2*mu1_mu2 + C1)*(2*sigma12 + C2))/((mu1_sq + mu2_sq + C1)*
-                    (sigma1_sq + sigma2_sq + C2)), 
+                    (sigma1_sq + sigma2_sq + C2)),
                 (2.0*sigma12 + C2)/(sigma1_sq + sigma2_sq + C2))
     else:
         return ((2*mu1_mu2 + C1)*(2*sigma12 + C2))/((mu1_sq + mu2_sq + C1)*
                     (sigma1_sq + sigma2_sq + C2))
-
 
 def init_weights(m):
     classname = m.__class__.__name__
@@ -298,4 +302,3 @@ def init_weights(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
-
