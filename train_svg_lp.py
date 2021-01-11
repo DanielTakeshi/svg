@@ -169,8 +169,14 @@ def get_testing_batch():
             yield batch
 testing_batch_generator = get_testing_batch()
 
+
 # --------- plotting funtions ------------------------------------
 def plot(x, epoch):
+    """Forms the sample_{epoch}.{gif,png} files.
+
+    Shows the results of evaluation time, using n_eval, which may differ from
+    training, which can condition and predict on different numbers of images.
+    """
     nsample = 20
     gen_seq = [[] for i in range(nsample)]
     gt_seq = [x[i] for i in range(len(x))]
@@ -249,6 +255,13 @@ def plot(x, epoch):
 
 
 def plot_rec(x, epoch):
+    """Forms the rec_{epoch}.png files.
+
+    Condition on first n_past frames, predict the next n_future frames. Example:
+    for SM-MNIST, condition 5, predict the next 10. With a properly trained SVG-LP,
+    rec_0.png has blurry (but promising) images, rec_299.png are very crisp. Makes
+    figure with 1 row per item in the test minibatch.
+    """
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     gen_seq = []

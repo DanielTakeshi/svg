@@ -67,7 +67,7 @@ def load_dataset(opt):
                 data_root=opt.data_root,
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
-    elif opt.dataset == 'fabric-pure-random':
+    elif opt.dataset == 'fabric-random':
         # Version we used for RSS 2020. Hard-coding image size of 56x56.
         from data.fabrics import FabricsData
         train_data = FabricsData(

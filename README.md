@@ -121,41 +121,15 @@ N/A% (0 of 600) |                                                               
 [00] mse loss: 0.02475 | kld loss: 0.41838 (0)
 Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
 Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
-Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
+...
 Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
 Lossy conversion from float32 to uint8. Range [0, 1]. Convert image to uint8 prior to saving to suppress this warning.
 log dir: /data/svg/logs//smmnist-2/model=dcgan64x64-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=5-n_future=10-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000
  72% (437 of 600) |####################################################################################################                                      | Elapsed Time: 0:09:08 ETA:   0:03:25
 ```
 
-However, we get `THCudaCheck FAIL` errors?
-
-The data and log files look something like this:
+We get `THCudaCheck FAIL` errors, but it seems like training went well?  The
+data and log files look something like this:
 
 ```
 /data/svg/mnist/
@@ -169,22 +143,48 @@ The data and log files look something like this:
         train-labels-idx1-ubyte
 /data/svg/logs/smmnist-2/
     'model=dcgan64x64-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=5-n_future=10-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000'
+        model.pth
+        gen/
+            rec_x.png
+            sample_x.gif
+        plots/
+            (empty?)
 ```
 
 With SM-MNIST, however, the data is generated on-the-fly, according to the
 paper, which may explain some slow-downs. Each progress bar that fills up is
-one epoch.
+one epoch. The `gen` subdirectory has stuff, but `plots` doesn't?
 
 
 ## BAIR Data
 
-TODO
+TODO -- follow data formatting instructions.
 
+TODO -- test action inclusion?
+
+```
+python train_svg_lp.py --dataset bair --model vgg --g_dim 128 --z_dim 64 --beta 0.0001 \
+    --n_past 2 --n_future 10 --channels 3 --data_root /path/to/data/ --log_dir /logs/will/be/saved/here/
+```
 
 
 ## Fabrics Data
 
+TODO -- need data generation script ready!
+
+Using the same 3 context frames and 7 future frames training setting from
+earlier results, we can train fabric prediction. For evaluation, we shouldn't
+use 30 (our trajectories are only of length 15) so maybe use 10? DCGAN is
+probably more desirable than VGG here.
+
+```
+python train_svg_lp.py --dataset fabric-random --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 \
+    --n_past 3  --n_future 7  --n_eval 10 \
+    --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/
+```
+
 TODO
+
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
