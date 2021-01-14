@@ -24,8 +24,8 @@ hostname = socket.gethostname()
 def load_dataset(opt):
     """Machinery for train/test data. Need special cases for each data type.
 
-    TODO: fabrics?
-    TODO: contrast with SV2P?
+    See the custom classes for fabric datasets, etc. The sequence length should be
+    the combination of past + future (i.e., context + predicted output).
     """
     if opt.dataset == 'smmnist':
         from data.moving_mnist import MovingMNIST
@@ -68,28 +68,39 @@ def load_dataset(opt):
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
     elif opt.dataset == 'fabric-random':
-        # Version we used for RSS 2020. Hard-coding image size of 56x56.
+        # Version we used for RSS 2020. Hard-coding image size of 56x56. We can try
+        # use_actions=False to test, but we really need it True for final results.
         from data.fabrics import FabricsData
         train_data = FabricsData(
                 train=True,
                 data_root=opt.data_root,
                 seq_len=opt.n_past+opt.n_future,
-                image_size=56)
+                image_size=56,
+                use_actions=False)
         test_data = FabricsData(
                 train=False,
                 data_root=opt.data_root,
                 seq_len=opt.n_eval,
-                image_size=56)
-        raise NotImplementedError()
+                image_size=56,
+                use_actions=False)
     else:
         raise ValueError(f'{opt.dataset} not supported')
 
     return train_data, test_data
 
 def sequence_input(seq, dtype):
+    """Daniel: deprecated, but I don't want to mess with existing code."""
     return [Variable(x.type(dtype)) for x in seq]
 
 def normalize_data(opt, dtype, sequence):
+    """I don't think this is normalizing, just transposing?
+
+    And for video prediction, don't we just want to predict raw values? Though normalizing
+    could be de-normalized if the process is deterministic. The bigger issue here is that
+    I think this is used to get shapes to match for convolutions. For example:
+
+    TODO(daniel) investigate.
+    """
     if opt.dataset == 'smmnist' or opt.dataset == 'kth' or opt.dataset == 'bair' :
         sequence.transpose_(0, 1)
         sequence.transpose_(3, 4).transpose_(2, 3)
