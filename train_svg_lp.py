@@ -95,15 +95,21 @@ else:
     prior.apply(utils.init_weights)
 
 if opt.model == 'dcgan':
-    if opt.image_width == 64:
+    if opt.image_width == 56:
+        import models.dcgan_56 as model
+    elif opt.image_width == 64:
         import models.dcgan_64 as model
     elif opt.image_width == 128:
         import models.dcgan_128 as model
+    else:
+        raise ValueError(opt.image_width)
 elif opt.model == 'vgg':
     if opt.image_width == 64:
         import models.vgg_64 as model
     elif opt.image_width == 128:
         import models.vgg_128 as model
+    else:
+        raise ValueError(opt.image_width)
 else:
     raise ValueError('Unknown model: %s' % opt.model)
 
