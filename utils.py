@@ -89,19 +89,30 @@ def load_dataset(opt):
     return train_data, test_data
 
 def sequence_input(seq, dtype):
-    """Daniel: deprecated, but I don't want to mess with existing code."""
+    """Daniel: deprecated, but I don't want to mess with working code."""
     return [Variable(x.type(dtype)) for x in seq]
 
-def normalize_data(opt, dtype, sequence):
+def normalize_data(opt, dtype, sequence, sequence_acts=None):
     """I don't think this is normalizing, just transposing?
 
-    And for video prediction, don't we just want to predict raw values? Though normalizing
-    could be de-normalized if the process is deterministic. The bigger issue here is that
-    I think this is used to get shapes to match for convolutions. For example:
+    For video prediction, don't we just want to predict raw values? Though normalizing
+    could be de-normalized if the process is deterministic. The bigger issue here is
+    we need to get appropriate tensor shapes. For SM-MNIST, the transpose pattern is:
+        (100, 15, 64, 64, 1) --> (15, 100, 64, 64, 1) --> (15, 100, 1, 64, 64)
+    to get sequence length in the leading axis, followed by batch size, etc. Fabrics:
+        (100, 10, 56, 56, 4) --> (10, 100, 56, 56, 4) --> (10, 100, 4, 56, 56)
 
-    TODO(daniel) investigate.
+    Args:
+        dtype: torch.cuda.FloatTensor
+        sequence: torch.Tensor (torch.float32) with the image data. Shape will be
+            (batch_size, seq_len, height, width, channels). For example, with defaults
+            for fabrics, (100,10,56,56,4) and with SM-MNIST, (100,15,64,64,1). They
+            have the same set of shapes so we should follow the same convention.
+        sequence_acts: for actions.
+            assuming we want (seq_len, batch_size, act_dim) as shape.
+            TODO(daniel)
     """
-    if opt.dataset == 'smmnist' or opt.dataset == 'kth' or opt.dataset == 'bair' :
+    if opt.dataset in ['smmnist', 'kth', 'bair', 'fabric-random']:
         sequence.transpose_(0, 1)
         sequence.transpose_(3, 4).transpose_(2, 3)
     else:
