@@ -3,9 +3,14 @@ import numpy as np
 from torchvision import datasets, transforms
 
 class MovingMNIST(object):
-    """Data Handler that creates Bouncing MNIST dataset on the fly."""
+    """Data Handler that creates Bouncing MNIST dataset on the fly.
 
-    def __init__(self, train, data_root, seq_len=20, num_digits=2, image_size=64, deterministic=True):
+    Daniel: adding an option to create more channels. This will only replicate the
+    image channel-wise, to check that the architecture still works with these changes.
+    """
+
+    def __init__(self, train, data_root, seq_len=20, num_digits=2, image_size=64,
+            deterministic=True, channels=1):
         path = data_root
         self.seq_len = seq_len
         self.num_digits = num_digits
@@ -14,7 +19,7 @@ class MovingMNIST(object):
         self.digit_size = 32
         self.deterministic = deterministic
         self.seed_is_set = False # multi threaded loading
-        self.channels = 1
+        self.channels = channels
 
         self.data = datasets.MNIST(
             path,
@@ -43,14 +48,15 @@ class MovingMNIST(object):
                       image_size,
                       self.channels),
                     dtype=np.float32)
+
         for n in range(self.num_digits):
             idx = np.random.randint(self.N)
             digit, _ = self.data[idx]
-
             sx = np.random.randint(image_size-digit_size)
             sy = np.random.randint(image_size-digit_size)
             dx = np.random.randint(-4, 5)
             dy = np.random.randint(-4, 5)
+
             for t in range(self.seq_len):
                 if sy < 0:
                     sy = 0
@@ -82,7 +88,14 @@ class MovingMNIST(object):
                         dx = np.random.randint(-4, 0)
                         dy = np.random.randint(-4, 5)
 
-                x[t, sy:sy+32, sx:sx+32, 0] += digit.numpy().squeeze()
+                if self.channels > 1:
+                    # Daniel: very minor change, just replicating it for rest of channels.
+                    for c in range(self.channels):
+                        x[t, sy:sy+32, sx:sx+32, c] += digit.numpy().squeeze()
+                elif self.channels == 1:
+                    # The original way from Dr. Denton.
+                    x[t, sy:sy+32, sx:sx+32, 0] += digit.numpy().squeeze()
+
                 sy += dy
                 sx += dx
 

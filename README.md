@@ -45,7 +45,7 @@ To train the SVG-FP model on 64x64 KTH videos run:
 python train_svg_fp.py --dataset kth --image_width  64 --model vgg --g_dim 128 --z_dim 24 --beta 0.000001 --n_past 10 --n_future 10 --channels 1 --lr 0.0008 --data_root /path/to/data/ --log_dir /logs/will/be/saved/here/
 ```
 
-# Daniel's Documentation
+# Daniel's Documentation [START HERE]
 
 - [Installation](#installation)
 - [Stochastic Moving MNIST](#sm-mnist)
@@ -108,11 +108,13 @@ Note:
 - Defaults to 300 epochs, with 600 batches per epoch, batch size is 100, which
   sums to 60K items per epoch. Seems logical but I asusme there's a train/test
   split.
+- Add `--channels 3` to replicate the input across channels and check if the
+  network architecture is compatible. Similarly, can adjust `--image_width`.
 
 It seems to train:
 
 ```
-(svg) seita@starship:~/svg (master) $ python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 --data_root /data/svg/mnist/ --log_dir /data/svg/logs/
+~/svg $ python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 --data_root /data/svg/mnist/ --log_dir /data/svg/logs/
 /home/seita/miniconda3/envs/svg/lib/python3.7/site-packages/sklearn/externals/joblib/externals/cloudpickle/cloudpickle.py:47: DeprecationWarning: the imp module is deprecated in favour of importlib; see the module's documentation for alternative uses
   import imp
 Random Seed:  1
@@ -158,9 +160,7 @@ one epoch. The `gen` subdirectory has stuff, but `plots` doesn't?
 
 ## BAIR Data
 
-TODO -- follow data formatting instructions.
-
-TODO -- test action inclusion?
+TODO -- follow data formatting instructions, test action inclusion?
 
 ```
 python train_svg_lp.py --dataset bair --model vgg --g_dim 128 --z_dim 64 --beta 0.0001 \
@@ -169,8 +169,6 @@ python train_svg_lp.py --dataset bair --model vgg --g_dim 128 --z_dim 64 --beta 
 
 
 ## Fabrics Data
-
-TODO -- need data generation script ready!
 
 Using the same 3 context frames and 7 future frames training setting from
 earlier results, we can train fabric prediction. For evaluation, we shouldn't
@@ -183,7 +181,9 @@ python train_svg_lp.py --dataset fabric-random --num_digits 2 --g_dim 128 --z_di
     --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/
 ```
 
-TODO
+**To add actions, use `--add_cond`** as another argument. This is what we should be doing.
+
+TODO: results?
 
 
 [1]:https://github.com/edenton/svg/pull/6

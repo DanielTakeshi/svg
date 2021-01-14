@@ -41,6 +41,7 @@ parser.add_argument('--model', default='dcgan', help='model type (dcgan | vgg)')
 parser.add_argument('--data_threads', type=int, default=5, help='number of data loading threads')
 parser.add_argument('--num_digits', type=int, default=2, help='number of digits for moving mnist')
 parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
+parser.add_argument('--action_cond', action='store_true', default=False)
 opt = parser.parse_args()
 
 if opt.model_dir != '':
@@ -114,6 +115,13 @@ else:
     decoder = model.decoder(opt.g_dim, opt.channels)
     encoder.apply(utils.init_weights)
     decoder.apply(utils.init_weights)
+num_params_enc = utils.numel(encoder)
+num_params_dec = utils.numel(decoder)
+#print(f'\n{encoder}\n')
+#print(f'{decoder}')
+print('\nNumber of parameters:')
+print(f'  encoder: {num_params_enc}')
+print(f'  decoder: {num_params_dec}')
 
 frame_predictor_optimizer = opt.optimizer(frame_predictor.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 posterior_optimizer = opt.optimizer(posterior.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -350,6 +358,9 @@ for epoch in range(opt.niter):
 
     for i in range(opt.epoch_size):
         progress.update(i+1)
+        # Daniel: x is list, len=seq_len, each item is of size (batch,channels,width,height).
+        # SM-MNIST: seq_len=15, size of (for example) x[0] is (100,1,64,64). All torch.float32,
+        # and all on cuda (check with `x[0].is_cuda`).
         x = next(training_batch_generator)
 
         # train frame_predictor

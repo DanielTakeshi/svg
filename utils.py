@@ -35,14 +35,16 @@ def load_dataset(opt):
                 seq_len=opt.n_past+opt.n_future,
                 image_size=opt.image_width,
                 deterministic=False,
-                num_digits=opt.num_digits)
+                num_digits=opt.num_digits,
+                channels=opt.channels)
         test_data = MovingMNIST(
                 train=False,
                 data_root=opt.data_root,
                 seq_len=opt.n_eval,
                 image_size=opt.image_width,
                 deterministic=False,
-                num_digits=opt.num_digits)
+                num_digits=opt.num_digits,
+                channels=opt.channels)
     elif opt.dataset == 'bair':
         from data.bair import RobotPush
         train_data = RobotPush(
@@ -335,3 +337,17 @@ def init_weights(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
+
+def numel(m: torch.nn.Module, only_trainable: bool = False):
+    """
+    returns the total number of parameters used by `m` (only counting
+    shared parameters once); if `only_trainable` is True, then only
+    includes parameters with `requires_grad = True`
+
+    https://stackoverflow.com/questions/49201236/
+    """
+    parameters = m.parameters()
+    if only_trainable:
+        parameters = list(p for p in parameters if p.requires_grad)
+    unique = dict((p.data_ptr(), p) for p in parameters).values()
+    return sum(p.numel() for p in unique)
