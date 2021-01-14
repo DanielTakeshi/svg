@@ -85,6 +85,7 @@ import torch
 import torch.nn as nn
 
 class dcgan_conv(nn.Module):
+
     def __init__(self, nin, nout):
         super(dcgan_conv, self).__init__()
         self.main = nn.Sequential(
@@ -96,7 +97,9 @@ class dcgan_conv(nn.Module):
     def forward(self, input):
         return self.main(input)
 
+
 class dcgan_upconv(nn.Module):
+
     def __init__(self, nin, nout):
         super(dcgan_upconv, self).__init__()
         self.main = nn.Sequential(
@@ -108,7 +111,9 @@ class dcgan_upconv(nn.Module):
     def forward(self, input):
         return self.main(input)
 
+
 class encoder(nn.Module):
+
     def __init__(self, dim, nc=1):
         super(encoder, self).__init__()
         self.dim = dim
@@ -129,7 +134,7 @@ class encoder(nn.Module):
                 )
 
     def forward(self, input):
-        """Daniel: for SM-MNISt, printing shapes gives:
+        """Daniel: for SM-MNIST, printing shapes gives:
 
         input:   torch.Size([100, 1, 64, 64])
         h1:      torch.Size([100, 64, 32, 32])
@@ -160,6 +165,7 @@ class encoder(nn.Module):
 
 
 class decoder(nn.Module):
+
     def __init__(self, dim, nc=1):
         super(decoder, self).__init__()
         self.dim = dim

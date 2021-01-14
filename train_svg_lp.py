@@ -378,10 +378,10 @@ for epoch in range(opt.niter):
     utils.clear_progressbar()
     print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
 
-    # plot some stuff
+    # plot some stuff [Daniel: I set encoder and decoder to use eval(), I can't see the harm?]
     frame_predictor.eval()
-    #encoder.eval()
-    #decoder.eval()
+    encoder.eval()
+    decoder.eval()
     posterior.eval()
     prior.eval()
 

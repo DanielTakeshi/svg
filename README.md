@@ -173,11 +173,12 @@ python train_svg_lp.py --dataset bair --model vgg --g_dim 128 --z_dim 64 --beta 
 Using the same 3 context frames and 7 future frames training setting from
 earlier results, we can train fabric prediction. For evaluation, we shouldn't
 use 30 (our trajectories are only of length 15) so maybe use 10? DCGAN is
-probably more desirable than VGG here.
+probably more desirable than VGG here. For most other hyperparameters, I'm
+sticking to those used in SM-MNIST.
 
 ```
-python train_svg_lp.py --dataset fabric-random --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 \
-    --n_past 3  --n_future 7  --n_eval 10  --channels 4 \
+python train_svg_lp.py --dataset fabric-random --g_dim 128 --z_dim 10 --beta 0.0001 \
+    --n_past 3  --n_future 7  --n_eval 10  --channels 4  --image_width 56 \
     --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/
 ```
 
