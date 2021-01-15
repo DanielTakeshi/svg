@@ -395,7 +395,7 @@ def train(x):
     for i in range(1, opt.n_past+opt.n_future):
         h = encoder(x[i-1])
         h_target = encoder(x[i])[0]
-        if opt.last_frame_skip or i < opt.n_past:
+        if opt.last_frame_skip or i <= opt.n_past:
             h, skip = h
         else:
             h = h[0]
