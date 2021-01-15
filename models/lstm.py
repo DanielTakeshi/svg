@@ -6,11 +6,12 @@ from torch.autograd import Variable
 class lstm(nn.Module):
     """Daniel: used for the frame predictor.
 
-    The output is passed through a tanh, but for GIFs we later clamp it in (0,1). That's because
-    the frame predictor actually needs to pass its output to a decoder network, and the decoder
-    (e.g., a DCGAN style one) is trained to predict values within (0,1).
-
-    TODO(daniel) action conditioned?
+    Output is passed through a tanh, but for GIFs we clamp it in (0,1). That's because
+    the frame predictor needs to pass its output to a decoder network, and the decoder
+    (e.g., a DCGAN style one) is trained to predict values within (0,1). In fact, the
+    decoder has a sigmoid at the end for DCGAN. Also recall that this is technically a
+    conditional Gaussian, but there's no sampling, it's just taking the mean output.
+    That's why there's no reparameterization trick involved.
     """
 
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):
@@ -47,7 +48,10 @@ class lstm(nn.Module):
 class gaussian_lstm(nn.Module):
     """Daniel: for prior and posterior, which use Gaussians.
 
-    TODO(daniel) describe more.
+    The forward pass returns: (z, \mu, log \sigma^2).
+    The \mu and \sigma parameterize a Gaussian distribution, and z is sampled from it,
+    creating the latent variable for SVG, which should capture stochastic information
+    about the next frame that the deterministic prediction model cannot capture.
     """
 
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):

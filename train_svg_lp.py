@@ -1,3 +1,30 @@
+"""
+SVG with LP. There are 5 models, instead of 4 as in FP, because we add `prior` as a model.
+B = batch size.
+
+Decoder: (B, images) --> (B, g_dim)
+Encoder: (B, g_dim) --> (B, images)
+
+As I know by now, both have skip connections to enable copying the prior frame.
+
+Prior (Gaussian LSTM):      p_psi(z_t | x_{1:t-1})
+Posterior (Gaussian LSTM):  q_phi(z_t | x_{1:t})
+Frame Predictor (LSTM):     p_theta(x_t | x_{1:t-1}, z_{1:t})
+
+The paper mentions a prediction model a prior distribution, and an inference network.
+The prediction model combines the encoder, decoder, and the frame predictor.
+The posterior must be the inference network because the KL divergence loss term
+tries to keep the outputs (mu, logstd) of both `p_psi` and `q_phi` close.
+
+How does training work? We iterate through n_past+n_future frames, and call the
+encoder. Recall that the encoder returns both the smaller vector AND the intermediate
+outputs, so that we can run skip connections to the decoder to reconstruct the images.
+REMEMBER: prior, posterior, frame predictor take in x_t notationally, but IN PRACTICE
+they take in ENCODED images, hence I like writing E[x_t] or E[x_{1:t}], etc. (It's not
+an expectation, don't get confused.)
+
+Whew, see docs below, I think I get it.
+"""
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -94,8 +121,8 @@ if opt.model_dir != '':
     prior = saved_model['prior']
 else:
     frame_predictor = lstm_models.lstm(opt.g_dim+opt.z_dim, opt.g_dim, opt.rnn_size, opt.predictor_rnn_layers, opt.batch_size)
-    posterior = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.posterior_rnn_layers, opt.batch_size)
-    prior = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.prior_rnn_layers, opt.batch_size)
+    posterior       = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.posterior_rnn_layers, opt.batch_size)
+    prior           = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.prior_rnn_layers,     opt.batch_size)
     frame_predictor.apply(utils.init_weights)
     posterior.apply(utils.init_weights)
     prior.apply(utils.init_weights)
@@ -145,7 +172,7 @@ decoder_optimizer = opt.optimizer(decoder.parameters(), lr=opt.lr, betas=(opt.be
 mse_criterion = nn.MSELoss()
 def kl_criterion(mu1, logvar1, mu2, logvar2):
     # KL( N(mu_1, sigma2_1) || N(mu_2, sigma2_2)) = log( sqrt(
-    # Daniel: seems like documentation is missing ...
+    # Daniel: unlike in FP case, here we have two non-identity Gaussians.
     sigma1 = logvar1.mul(0.5).exp()
     sigma2 = logvar2.mul(0.5).exp()
     kld = torch.log(sigma2/sigma1) + (torch.exp(logvar1) + (mu1 - mu2)**2)/(2*torch.exp(logvar2)) - 1/2
@@ -198,7 +225,7 @@ def get_testing_batch():
 testing_batch_generator = get_testing_batch()
 
 
-# --------- plotting funtions ------------------------------------
+# -------------------------------- plotting funtions ------------------------------------ #
 def plot(x, epoch):
     """Forms the sample_{epoch}.{gif,png} files.
 
@@ -292,6 +319,9 @@ def plot_rec(x, epoch):
     for SM-MNIST, condition 5, predict the next 10. With a properly trained SVG-LP,
     rec_0.png has blurry (but promising) images, rec_299.png are very crisp. Makes
     figure with 1 row per item in the test minibatch.
+
+    TODO(daniel) The paper says the inference (i.e., posterior) network is not used
+    at test time. But it's clearly being used here and in plot() above?
     """
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
@@ -328,8 +358,27 @@ def plot_rec(x, epoch):
     utils.save_tensors_image(fname, to_plot)
 
 
-# --------- training funtions ------------------------------------
+# ------------------------------ training funtions ------------------------------------ #
 def train(x):
+    """Daniel: iteration `i` means sampling z_i, PREDICTING x_i. Get E(x_i), decode to x_i.
+
+    I like writing h = E[x_{t-1}] to remind me that it's an encoding.
+    Shapes for frame predictor stuff:
+        Assume g_dim (hidden variable) dim. is 128, and latent variable dim. is 10.
+        h: (B, 128), z_t: (B, 10)
+        FramePredictor input: (B, 138), output is back to (B, 128).
+
+    There is one condition which helps to preserve `skip` layers, which means we can
+    copy over stuff from given images (n_past) and use them later (n_future) because
+    the for loop will NOT update `skip` any longer after we exceed the if condition case.
+
+    BUT ... as mentioned: https://github.com/edenton/svg/issues/1 it seems like we want
+    one more image's information, right? If n_past=2 that means x_0 and x_1 are ground truth
+    frames, and we're predicting x_2 and beyond. But the for loop will stop updating `skip`
+    when i=1, meaning that the last GROUND TRUTH is x_0 because given iteration `i`, we are
+    actually predicting x_i (while conditioning on x_{i-1}). Yeah ... I agree with the issue
+    report.
+    """
     frame_predictor.zero_grad()
     posterior.zero_grad()
     prior.zero_grad()
