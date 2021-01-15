@@ -70,7 +70,8 @@ parser.add_argument('--model', default='dcgan', help='model type (dcgan | vgg)')
 parser.add_argument('--data_threads', type=int, default=5, help='number of data loading threads')
 parser.add_argument('--num_digits', type=int, default=2, help='number of digits for moving mnist')
 parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
-parser.add_argument('--action_cond', action='store_true', default=False)
+parser.add_argument('--action_cond', action='store_true', default=False, help='true to make this action conditioned')
+parser.add_argument('--act_design', type=int, default=1, help='TODO(daniel)')
 opt = parser.parse_args()
 
 if opt.model_dir != '':
@@ -87,6 +88,8 @@ else:
             opt.model, opt.image_width, opt.image_width, opt.rnn_size, opt.predictor_rnn_layers,
             opt.posterior_rnn_layers, opt.prior_rnn_layers, opt.n_past, opt.n_future, opt.lr, opt.g_dim,
             opt.z_dim, opt.last_frame_skip, opt.beta, opt.name)
+    if opt.action_cond:
+        name += '-act-cond-{}'.format(opt.act_design)
     if opt.dataset == 'smmnist':
         opt.log_dir = '%s/%s-%d/%s' % (opt.log_dir, opt.dataset, opt.num_digits, name)
     else:
@@ -313,12 +316,27 @@ def plot(x, epoch):
 
 
 def plot_rec(x, epoch):
-    """Forms the rec_{epoch}.png files.
+    """Daniel: forms the rec_{epoch}.png files.
 
     Condition on first n_past frames, predict the next n_future frames. Example:
     for SM-MNIST, condition 5, predict the next 10. With a properly trained SVG-LP,
     rec_0.png has blurry (but promising) images, rec_299.png are very crisp. Makes
-    figure with 1 row per item in the test minibatch.
+    figure with 1 row per item in the test minibatch. Put images in `gen_seq`:
+
+    gen_seq = [ x[0], ..., x[n_past - 1], x[npast], ..., x[npast + nfuture - 1] ]
+                                         ^ --------- decoded images ---------- ^
+
+    As with train(), `i` means sampling z_i, PREDICTING x_i. Get E(x_i), decode to x_i.
+    Here, `i < opt.n_past` is also changed to <= for the skip portion, but not later
+    for gen_seq appending, since `i < opt.n_past` means we're on a ground truth image.
+    Either way, we always call the frame predictor -- it's just that we can safely
+    ignore its output if we're still in the ground truth generation phase, since the
+    hidden state of the frame predictor is continually maintained internally! Great.
+
+    BUT, this is actually using the ground truth images even after opt.n_past-1, as
+    it's using encoder(x[i]) for all t here? I thought we were going to pass in the
+    images in the `gen_seq` to the encoder? Well, that's for the plot() method above.
+    Keep that in mind when reading these images!
 
     TODO(daniel) The paper says the inference (i.e., posterior) network is not used
     at test time. But it's clearly being used here and in plot() above?
@@ -328,10 +346,11 @@ def plot_rec(x, epoch):
     gen_seq = []
     gen_seq.append(x[0])
     x_in = x[0]
+
     for i in range(1, opt.n_past+opt.n_future):
         h = encoder(x[i-1])
         h_target = encoder(x[i])
-        if opt.last_frame_skip or i < opt.n_past:
+        if opt.last_frame_skip or i <= opt.n_past:  # Daniel: see issue report on GitHub
             h, skip = h
         else:
             h, _ = h
@@ -339,7 +358,7 @@ def plot_rec(x, epoch):
         h = h.detach()
         h_target = h_target.detach()
         z_t, _, _= posterior(h_target)
-        if i < opt.n_past:
+        if i < opt.n_past:  # Daniel: should be correct
             frame_predictor(torch.cat([h, z_t], 1))
             gen_seq.append(x[i])
         else:
@@ -376,8 +395,7 @@ def train(x):
     one more image's information, right? If n_past=2 that means x_0 and x_1 are ground truth
     frames, and we're predicting x_2 and beyond. But the for loop will stop updating `skip`
     when i=1, meaning that the last GROUND TRUTH is x_0 because given iteration `i`, we are
-    actually predicting x_i (while conditioning on x_{i-1}). Yeah ... I agree with the issue
-    report.
+    actually predicting x_i (while conditioning on x_{i-1}). I agree!
     """
     frame_predictor.zero_grad()
     posterior.zero_grad()
