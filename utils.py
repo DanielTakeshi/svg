@@ -130,13 +130,15 @@ def is_sequence(arg):
             hasattr(arg, "__iter__")))
 
 def image_tensor(inputs, padding=1):
+    """Daniel: returns torch tensor of (c_dim, ...), so we should remove depth
+    channel(s) when making visualizations."""
     # assert is_sequence(inputs)
     assert len(inputs) > 0
-    # print(inputs)
 
     # if this is a list of lists, unpack them all and grid them up
     if is_sequence(inputs[0]) or (hasattr(inputs, "dim") and inputs.dim() > 4):
         images = [image_tensor(x) for x in inputs]
+        # Daniel: I'm only seeing images[0].dim() == 3 for fabrics-random.
         if images[0].dim() == 3:
             c_dim = images[0].size(0)
             x_dim = images[0].size(1)
@@ -159,7 +161,7 @@ def image_tensor(inputs, padding=1):
     else:
         images = [x.data if isinstance(x, torch.autograd.Variable) else x
                   for x in inputs]
-        # print(images)
+        # Daniel: I'm only seeing images[0].dim() == 3 for fabrics-random.
         if images[0].dim() == 3:
             c_dim = images[0].size(0)
             x_dim = images[0].size(1)
@@ -186,10 +188,15 @@ def save_np_img(fname, x):
     img.save(fname)
 
 def make_image(tensor):
+    """Daniel: if channels > 3, get rid of anything after first 3.
+
+    I'm seeing mean values that are close to 1, though, is that intended?
+    """
     tensor = tensor.cpu().clamp(0, 1)
     if tensor.size(0) == 1:
         tensor = tensor.expand(3, tensor.size(1), tensor.size(2))
-    # pdb.set_trace()
+    elif tensor.size(0) > 3:
+        tensor = tensor[:3, :, :]
     tensor = tensor.detach().numpy()
     return scipy.misc.toimage(tensor,
                               high=255*tensor.max(),
@@ -213,15 +220,28 @@ def save_gif(filename, inputs, duration=0.25):
     To fix that, I'm making the numpy images uint8. Since the original images are in
     range [0,1] then scale by 255 before turning to np.uint8. They get clamped here,
     see the `clamp(0,1)` call.
+
+    After `image_tensor()`, remove the depth channels for fabrics data. We'll assume
+    we can do this by only keeping the leading 3 dimensions. Here, after img.cpu(), shapes:
+
+        [1, 640, 389] for 64x64 SM-MNIST
+        [1, 560, 341] for 56x56 SM-MNIST
+        [4, 560, 341] for 56x56 fabric-random
     """
+    def keep_only_rgb(x):
+        assert x.dim() == 3, x.dim()
+        x = x[:3, :, :]
+        return x
+
     images = []
     for tensor in inputs:
         img = image_tensor(tensor, padding=0)
         img = img.cpu()
+        if img.size(0) > 3:
+            img = keep_only_rgb(img)
         img = img.transpose(0,1).transpose(1,2).clamp(0,1)
-        # images.append(img.numpy())                        # Daniel: original
-        np_image = (img.numpy() * 255.0).astype(np.uint8)   # Daniel: new
-        images.append(np_image)                             # Daniel: new
+        np_image = (img.numpy() * 255.0).astype(np.uint8)
+        images.append(np_image)
     imageio.mimsave(filename, images, duration=duration)
 
 def save_gif_with_text(filename, inputs, text, duration=0.25):

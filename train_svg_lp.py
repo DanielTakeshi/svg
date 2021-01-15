@@ -234,15 +234,16 @@ def plot(x, epoch):
     to_plot = []
     gifs = [ [] for t in range(opt.n_eval) ]
     nrow = min(opt.batch_size, 10)
+
     for i in range(nrow):
-        # ground truth sequence
+        # ground truth sequence [Daniel: gt_seq[t][i].data for VSF data is shape (4,56,56)]
         row = []
         for t in range(opt.n_eval):
             row.append(gt_seq[t][i])
         to_plot.append(row)
 
         # best sequence
-        min_mse = 1e7
+        min_mse = 1e12
         for s in range(nsample):
             mse = 0
             for t in range(opt.n_eval):
@@ -272,7 +273,6 @@ def plot(x, epoch):
 
     fname = '%s/gen/sample_%d.png' % (opt.log_dir, epoch)
     utils.save_tensors_image(fname, to_plot)
-
     fname = '%s/gen/sample_%d.gif' % (opt.log_dir, epoch)
     utils.save_gif(fname, gifs)
 
