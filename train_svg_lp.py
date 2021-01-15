@@ -11,6 +11,8 @@ import itertools
 import progressbar
 import numpy as np
 import sys
+import pickle
+from collections import defaultdict
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
@@ -54,7 +56,10 @@ if opt.model_dir != '':
     opt.model_dir = model_dir
     opt.log_dir = '%s/continued' % opt.log_dir
 else:
-    name = 'model=%s%dx%d-rnn_size=%d-predictor-posterior-prior-rnn_layers=%d-%d-%d-n_past=%d-n_future=%d-lr=%.4f-g_dim=%d-z_dim=%d-last_frame_skip=%s-beta=%.7f%s' % (opt.model, opt.image_width, opt.image_width, opt.rnn_size, opt.predictor_rnn_layers, opt.posterior_rnn_layers, opt.prior_rnn_layers, opt.n_past, opt.n_future, opt.lr, opt.g_dim, opt.z_dim, opt.last_frame_skip, opt.beta, opt.name)
+    name = 'model=%s%dx%d-rnn_size=%d-predictor-posterior-prior-rnn_layers=%d-%d-%d-n_past=%d-n_future=%d-lr=%.4f-g_dim=%d-z_dim=%d-last_frame_skip=%s-beta=%.7f%s' % (
+            opt.model, opt.image_width, opt.image_width, opt.rnn_size, opt.predictor_rnn_layers,
+            opt.posterior_rnn_layers, opt.prior_rnn_layers, opt.n_past, opt.n_future, opt.lr, opt.g_dim,
+            opt.z_dim, opt.last_frame_skip, opt.beta, opt.name)
     if opt.dataset == 'smmnist':
         opt.log_dir = '%s/%s-%d/%s' % (opt.log_dir, opt.dataset, opt.num_digits, name)
     else:
@@ -81,6 +86,7 @@ elif opt.optimizer == 'sgd':
 else:
     raise ValueError('Unknown optimizer: %s' % opt.optimizer)
 
+# --------------------------------------- MODELS --------------------------------------------- #
 import models.lstm as lstm_models
 if opt.model_dir != '':
     frame_predictor = saved_model['frame_predictor']
@@ -190,11 +196,13 @@ def plot(x, epoch):
 
     Shows the results of evaluation time, using n_eval, which may differ from
     training, which can condition and predict on different numbers of images.
+    Example, x_in = decoder(...) prediction has size: (batch, nchannel, H, W).
     """
     nsample = 20
     gen_seq = [[] for i in range(nsample)]
     gt_seq = [x[i] for i in range(len(x))]
 
+    # Generate samples from model.
     for s in range(nsample):
         frame_predictor.hidden = frame_predictor.init_hidden()
         posterior.hidden = posterior.init_hidden()
@@ -222,6 +230,7 @@ def plot(x, epoch):
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
+    # Plotting / GIF.
     to_plot = []
     gifs = [ [] for t in range(opt.n_eval) ]
     nrow = min(opt.batch_size, 10)
@@ -351,7 +360,9 @@ def train(x):
     return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
 
-# --------- training loop ------------------------------------
+# ------------------------------- TRAINING LOOP ------------------------------------ #
+LOSSES = defaultdict(list)
+
 for epoch in range(opt.niter):
     frame_predictor.train()
     posterior.train()
@@ -376,7 +387,12 @@ for epoch in range(opt.niter):
 
     progress.finish()
     utils.clear_progressbar()
-    print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
+    print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch,
+            epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
+    LOSSES['epoch'].append(epoch)
+    LOSSES['mse_loss'].append(epoch_mse/opt.epoch_size)
+    LOSSES['kld_loss'].append(epoch_kld/opt.epoch_size)
+    LOSSES['tot_train'].append(epoch*opt.epoch_size*opt.batch_size)
 
     # plot some stuff [Daniel: I set encoder and decoder to use eval(), I can't see the harm?]
     frame_predictor.eval()
@@ -400,3 +416,8 @@ for epoch in range(opt.niter):
         '%s/model.pth' % opt.log_dir)
     if epoch % 10 == 0:
         print('log dir: %s' % opt.log_dir)
+
+    # Save losses.
+    loss_pth = '%s/losses.pkl' % opt.log_dir
+    with open(loss_pth, 'wb') as fh:
+        pickle.dump(LOSSES, fh)

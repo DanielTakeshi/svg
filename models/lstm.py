@@ -2,7 +2,17 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+
 class lstm(nn.Module):
+    """Daniel: used for the frame predictor.
+
+    The output is passed through a tanh, but for GIFs we later clamp it in (0,1). That's because
+    the frame predictor actually needs to pass its output to a decoder network, and the decoder
+    (e.g., a DCGAN style one) is trained to predict values within (0,1).
+
+    TODO(daniel) action conditioned?
+    """
+
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):
         super(lstm, self).__init__()
         self.input_size = input_size
@@ -14,7 +24,6 @@ class lstm(nn.Module):
         self.lstm = nn.ModuleList([nn.LSTMCell(hidden_size, hidden_size) for i in range(self.n_layers)])
         self.output = nn.Sequential(
                 nn.Linear(hidden_size, output_size),
-                #nn.BatchNorm1d(output_size),
                 nn.Tanh())
         self.hidden = self.init_hidden()
 
@@ -34,7 +43,13 @@ class lstm(nn.Module):
 
         return self.output(h_in)
 
+
 class gaussian_lstm(nn.Module):
+    """Daniel: for prior and posterior, which use Gaussians.
+
+    TODO(daniel) describe more.
+    """
+
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):
         super(gaussian_lstm, self).__init__()
         self.input_size = input_size
@@ -70,4 +85,3 @@ class gaussian_lstm(nn.Module):
         logvar = self.logvar_net(h_in)
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
-            

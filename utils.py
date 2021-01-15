@@ -204,12 +204,24 @@ def draw_text_tensor(tensor, text):
     return Variable(torch.Tensor(img / 255.)).transpose(1, 2).transpose(0, 1)
 
 def save_gif(filename, inputs, duration=0.25):
+    """Daniel: saves a GIF, called from `plot()` function.
+
+    I was getting a warning:
+        Lossy conversion from float32 to uint8. Range [0, 1].
+        Convert image to uint8 prior to saving to suppress this warning.
+
+    To fix that, I'm making the numpy images uint8. Since the original images are in
+    range [0,1] then scale by 255 before turning to np.uint8. They get clamped here,
+    see the `clamp(0,1)` call.
+    """
     images = []
     for tensor in inputs:
         img = image_tensor(tensor, padding=0)
         img = img.cpu()
         img = img.transpose(0,1).transpose(1,2).clamp(0,1)
-        images.append(img.numpy())
+        # images.append(img.numpy())                        # Daniel: original
+        np_image = (img.numpy() * 255.0).astype(np.uint8)   # Daniel: new
+        images.append(np_image)                             # Daniel: new
     imageio.mimsave(filename, images, duration=duration)
 
 def save_gif_with_text(filename, inputs, text, duration=0.25):
