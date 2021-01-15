@@ -178,14 +178,22 @@ test_loader = DataLoader(test_data,
 def get_training_batch():
     while True:
         for sequence in train_loader:
-            batch = utils.normalize_data(opt, dtype, sequence)
+            if opt.action_cond:
+                # Will return `batch` as a two-item tuple
+                batch = utils.normalize_data(opt, dtype, sequence=sequence[0], sequence_acts=sequence[1])
+            else:
+                batch = utils.normalize_data(opt, dtype, sequence)
             yield batch
 training_batch_generator = get_training_batch()
 
 def get_testing_batch():
     while True:
         for sequence in test_loader:
-            batch = utils.normalize_data(opt, dtype, sequence)
+            if opt.action_cond:
+                # Will return `batch` as a two-item tuple
+                batch = utils.normalize_data(opt, dtype, sequence=sequence[0], sequence_acts=sequence[1])
+            else:
+                batch = utils.normalize_data(opt, dtype, sequence)
             yield batch
 testing_batch_generator = get_testing_batch()
 
@@ -377,11 +385,15 @@ for epoch in range(opt.niter):
         progress.update(i+1)
         # Daniel: x is list, len=seq_len, each item is of size (batch,channels,width,height).
         # SM-MNIST: seq_len=15, size of (for example) x[0] is (100,1,64,64). All torch.float32,
-        # and all on cuda (check with `x[0].is_cuda`).
+        # and all on cuda (check with `x[0].is_cuda`). If actions, this is a tuple.
         x = next(training_batch_generator)
 
         # train frame_predictor
-        mse, kld = train(x)
+        if opt.action_cond:
+            x_imgs, x_acts = x
+            mse, kld = train(x_imgs)  # TODO(daniel)
+        else:
+            mse, kld = train(x)
         epoch_mse += mse
         epoch_kld += kld
 
@@ -402,8 +414,13 @@ for epoch in range(opt.niter):
     prior.eval()
 
     x = next(testing_batch_generator)
-    plot(x, epoch)
-    plot_rec(x, epoch)
+    if opt.action_cond:
+        x_imgs, x_acts = x
+        plot(x_imgs, epoch)
+        plot_rec(x_imgs, epoch)
+    else:
+        plot(x, epoch)
+        plot_rec(x, epoch)
 
     # save the model
     torch.save({

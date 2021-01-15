@@ -78,13 +78,13 @@ def load_dataset(opt):
                 data_root=opt.data_root,
                 seq_len=opt.n_past+opt.n_future,
                 image_size=56,
-                use_actions=False)
+                use_actions=opt.action_cond)
         test_data = FabricsData(
                 train=False,
                 data_root=opt.data_root,
                 seq_len=opt.n_eval,
                 image_size=56,
-                use_actions=False)
+                use_actions=opt.action_cond)
     else:
         raise ValueError(f'{opt.dataset} not supported')
 
@@ -107,12 +107,15 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
     Args:
         dtype: torch.cuda.FloatTensor
         sequence: torch.Tensor (torch.float32) with the image data. Shape will be
-            (batch_size, seq_len, height, width, channels). For example, with defaults
+            (batch_size, seq_len, height, width, channels). Example, with defaults
             for fabrics, (100,10,56,56,4) and with SM-MNIST, (100,15,64,64,1). They
             have the same set of shapes so we should follow the same convention.
-        sequence_acts: for actions.
-            assuming we want (seq_len, batch_size, act_dim) as shape.
-            TODO(daniel)
+        sequence_acts: torch.Tensor (torch.float32) with action data. Shape will be
+            (batch_size, seq_len-1, channels), so swap the first two of these to get
+            (seq_len-1, batch_size, channels). See documentation in fabrics.py file
+            for the rationale. WE THEN IGNORE THE FIRST `opt.n_past-1` actions, so
+            that the FIRST action in sequence_acts will be aligned with the current
+            input observation (the LAST of the `opt.n_past` context frames).
     """
     if opt.dataset in ['smmnist', 'kth', 'bair', 'fabric-random']:
         sequence.transpose_(0, 1)
@@ -120,7 +123,14 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
     else:
         sequence.transpose_(0, 1)
 
-    return sequence_input(sequence, dtype)
+    if sequence_acts is not None:
+        assert opt.dataset in ['fabric-random'], opt.dataset
+        sequence_imgs = sequence_input(sequence, dtype) # same as usual
+        sequence_acts.transpose_(0, 1)                  # new for actions
+        sequence_acts = sequence_acts[opt.n_past-1 : ]  # see notes above
+        return (sequence_imgs, sequence_acts)
+    else:
+        return sequence_input(sequence, dtype)
 
 def is_sequence(arg):
     return (not hasattr(arg, "strip") and
