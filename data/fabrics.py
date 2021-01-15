@@ -55,6 +55,13 @@ class FabricsData(Dataset):
         assert self.d_images.shape[1] == self.d_actions.shape[1] + 1
         assert self.d_images.shape[2] == self.d_images.shape[3] == image_size
         assert self.d_images.shape[4] == self.n_channels
+        assert np.min(self.d_images) >= 0, np.min(self.d_images)
+        assert np.max(self.d_images) <= 255.0, np.max(self.d_images)
+        assert np.min(self.d_actions) >= -1.0, np.min(self.d_actions)
+        assert np.max(self.d_actions) <=  1.0, np.max(self.d_actions)
+
+        # Finally, divide by 255 so that values are in expected ranges.
+        self.d_images /= 255.0
 
     def __len__(self):
         return self.N

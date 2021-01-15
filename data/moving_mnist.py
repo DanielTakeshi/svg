@@ -7,6 +7,7 @@ class MovingMNIST(object):
 
     Daniel: adding an option to create more channels. This will only replicate the
     image channel-wise, to check that the architecture still works with these changes.
+    Note that PyTorch's transforms.ToTensor() makes the images have values in [0,1].
     """
 
     def __init__(self, train, data_root, seq_len=20, num_digits=2, image_size=64,

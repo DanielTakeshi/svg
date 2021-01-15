@@ -23,7 +23,9 @@ REMEMBER: prior, posterior, frame predictor take in x_t notationally, but IN PRA
 they take in ENCODED images, hence I like writing E[x_t] or E[x_{1:t}], etc. (It's not
 an expectation, don't get confused.)
 
-Whew, see docs below, I think I get it.
+Whew, see docs below, I think I get it. Any remaining confusions:
+    TODO(daniel) The paper says the inference (i.e., posterior) network is not used
+    at test time. But it's clearly being used in both plot methods.
 """
 import torch
 import torch.optim as optim
@@ -337,9 +339,6 @@ def plot_rec(x, epoch):
     it's using encoder(x[i]) for all t here? I thought we were going to pass in the
     images in the `gen_seq` to the encoder? Well, that's for the plot() method above.
     Keep that in mind when reading these images!
-
-    TODO(daniel) The paper says the inference (i.e., posterior) network is not used
-    at test time. But it's clearly being used here and in plot() above?
     """
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
