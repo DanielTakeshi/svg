@@ -234,9 +234,22 @@ testing_batch_generator = get_testing_batch()
 def plot(x, epoch):
     """Forms the sample_{epoch}.{gif,png} files.
 
-    Shows the results of evaluation time, using n_eval, which may differ from
-    training, which can condition and predict on different numbers of images.
-    Example, x_in = decoder(...) prediction has size: (batch, nchannel, H, W).
+    Shows the results of evaluation time, using n_eval, which may differ from training,
+    which can condition and predict on different numbers of images. For example,
+    x_in = decoder(...) prediction has size: (batch, nchannel, H, W).
+
+    Get `nsample` samples, meaning this many different instances of prediction, and for
+    each of these, we predict frames in the future _starting_ from the ground truths.
+    Unlike plot_rec(), this time after the ground truth images, SVG does NOT get further
+    ground truth images and instead passes the predicted image to the encoder for the next
+    time frame. Good! We also see this reflected in that `h_target = encoder(x[i])` is ONLY
+    called if `i < opt.n_past`.
+
+    NOTE: `opt.n_eval` is maybe misleading, I thought it meant predicting this many images.
+    However, we actually use the first `opt.n_past` frames and treat those as ground truth,
+    which is the same as `plot_rec`, then any REMAINING frames, `n_eval-n_past`, will be
+    predicted. So for my fabric example with past=3, future=7, I set eval=10 so that it
+    replicates the training setup, given the first 3 frames, predict the next 7.
     """
     nsample = 20
     gen_seq = [[] for i in range(nsample)]
@@ -249,9 +262,12 @@ def plot(x, epoch):
         prior.hidden = prior.init_hidden()
         gen_seq[s].append(x[0])
         x_in = x[0]
+
+        # Daniel: as usual, iter `i` means x_{i-1} is most recent frame, SVG samples z_i
+        # and x_i. However, if it's before n_past, just use ground truth x_i for image.
         for i in range(1, opt.n_eval):
             h = encoder(x_in)
-            if opt.last_frame_skip or i < opt.n_past:
+            if opt.last_frame_skip or i <= opt.n_past:  # Daniel: see issue report on GitHub
                 h, skip = h
             else:
                 h, _ = h
@@ -262,15 +278,19 @@ def plot(x, epoch):
                 z_t, _, _ = posterior(h_target)
                 prior(h)
                 frame_predictor(torch.cat([h, z_t], 1))
-                x_in = x[i]
+                x_in = x[i]  # Daniel: GROUND TRUTH.
                 gen_seq[s].append(x_in)
             else:
+                # Daniel: the posterior isn't used, as it relies on ground truth images
+                # _after_ n_past. So instead we use the prior, which we cleverly kept
+                # updating during the ground truth stage (i < opt.n_past).
                 z_t, _, _ = prior(h)
                 h = frame_predictor(torch.cat([h, z_t], 1)).detach()
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
-    # Plotting / GIF.
+    # Daniel: Plotting / GIF. For the .png, show (a) ground truth sequence, (b) the
+    # predictions with minimum MSE, and (c) 4 more randomly drawn samples from SVG.
     to_plot = []
     gifs = [ [] for t in range(opt.n_eval) ]
     nrow = min(opt.batch_size, 10)
@@ -292,11 +312,19 @@ def plot(x, epoch):
                 min_mse = mse
                 min_idx = s
 
-        s_list = [min_idx,
-                  np.random.randint(nsample),
-                  np.random.randint(nsample),
-                  np.random.randint(nsample),
-                  np.random.randint(nsample)]
+        # Daniel: this given code should be modified to make samples guaranteed as distinct.
+        #s_list = [min_idx,
+        #          np.random.randint(nsample),
+        #          np.random.randint(nsample),
+        #          np.random.randint(nsample),
+        #          np.random.randint(nsample)]
+        s_indices = np.random.permutation(5)
+        s_list = [min_idx]
+        for s_idx in s_indices:
+            if s_idx in s_list:
+                continue  # avoid equal to min_idx case
+            s_list.append(s_idx)
+
         for ss in range(len(s_list)):
             s = s_list[ss]
             row = []
@@ -338,7 +366,11 @@ def plot_rec(x, epoch):
     BUT, this is actually using the ground truth images even after opt.n_past-1, as
     it's using encoder(x[i]) for all t here? I thought we were going to pass in the
     images in the `gen_seq` to the encoder? Well, that's for the plot() method above.
-    Keep that in mind when reading these images!
+    Keep that in mind when reading these images! Also, remember that the first few
+    frames in the image, up to `n_past`, will be ground-truth. The `rec.png` image
+    should have the first `n_past` frames look sharp since they are from the data.
+
+    NOTE: the prior is not used at all here (why?), whereas plot uses the prior.
     """
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()

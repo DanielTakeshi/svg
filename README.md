@@ -179,10 +179,12 @@ sticking to those used in SM-MNIST.
 ```
 python train_svg_lp.py --dataset fabric-random --g_dim 128 --z_dim 10 --beta 0.0001 \
     --n_past 3  --n_future 7  --n_eval 10  --channels 4  --image_width 56 \
-    --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/
+    --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/ \
+    --epoch_size 100  --niter 1000  --action_cond
 ```
 
-**To add actions, use `--add_cond`** as another argument. This is what we should be doing.
+Without `--action_cond`, the model can still generate some predictions, but
+actions should hopefully make them sharper.
 
 TODO: results?
 
