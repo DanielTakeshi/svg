@@ -116,7 +116,9 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
             (seq_len-1, batch_size, channels). See documentation in fabrics.py file
             for the rationale. WE THEN IGNORE THE FIRST `opt.n_past-1` actions, so
             that the FIRST action in sequence_acts will be aligned with the current
-            input observation (the LAST of the `opt.n_past` context frames).
+            input observation (the LAST of the `opt.n_past` context frames). UPDATE:
+            no this is bad, we actually do need the first few actions so that we can
+            get consistent input dimensions during ground truth stage. AH!
     """
     if opt.dataset in ['smmnist', 'kth', 'bair', 'fabric-random']:
         sequence.transpose_(0, 1)
@@ -128,7 +130,7 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
         assert opt.dataset in ['fabric-random'], opt.dataset
         sequence_imgs = sequence_input(sequence, dtype) # same as usual
         sequence_acts.transpose_(0, 1)                  # new for actions
-        sequence_acts = sequence_acts[opt.n_past-1 : ]  # see notes above
+        #sequence_acts = sequence_acts[opt.n_past-1 : ]  # DO NOT DO THIS
         return (sequence_imgs, sequence_acts)
     else:
         return sequence_input(sequence, dtype)

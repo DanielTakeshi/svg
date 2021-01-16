@@ -85,6 +85,14 @@ class FabricsData(Dataset):
         the resulting sliced indices should give us all info we need. In SVG code, we
         will need to dump the first context-1 = 2 actions, since those are ignored in
         training, but all other actions (and all other images) are needed.
+
+        ACTUALLY, upon further thought, since we want to concatenate the action with
+        the output of the encoder, then it seems better to make `h` use a consistent
+        dimension throughout training, so I think we want the first few actions, so do:
+
+          start=0 --> given o_{0,1,2}, a_{0,1,2,3,4,5,6,7,8},      predict o_{3:9}.
+          start=3 --> given o_{3,4,5}, a_{3,4,5,6,7,8,9,10,11},    predict o_{6:12}.
+          start=6 --> given o_{6,7,8}, a_{6,7,8,9,10,11,12,13,14}, predict o_{9:15}.
         """
         seq_images = self.d_images[index]
         seq_actions = self.d_actions[index]

@@ -73,7 +73,8 @@ parser.add_argument('--data_threads', type=int, default=5, help='number of data 
 parser.add_argument('--num_digits', type=int, default=2, help='number of digits for moving mnist')
 parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
 parser.add_argument('--action_cond', action='store_true', default=False, help='true to make this action conditioned')
-parser.add_argument('--act_design', type=int, default=1, help='TODO(daniel)')
+parser.add_argument('--act_dim', type=int, default=4, help='Need to adjust architecture a bit')
+parser.add_argument('--act_design', type=int, default=1, help='TODO(daniel) if we try multiple designs.')
 opt = parser.parse_args()
 
 if opt.model_dir != '':
@@ -125,9 +126,16 @@ if opt.model_dir != '':
     posterior = saved_model['posterior']
     prior = saved_model['prior']
 else:
-    frame_predictor = lstm_models.lstm(opt.g_dim+opt.z_dim, opt.g_dim, opt.rnn_size, opt.predictor_rnn_layers, opt.batch_size)
-    posterior       = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.posterior_rnn_layers, opt.batch_size)
-    prior           = lstm_models.gaussian_lstm(opt.g_dim, opt.z_dim, opt.rnn_size, opt.prior_rnn_layers,     opt.batch_size)
+    in_frame = opt.g_dim + opt.z_dim
+    in_postr = opt.g_dim
+    in_prior = opt.g_dim
+    if opt.action_cond:
+        in_frame += opt.act_dim
+        #in_postr += opt.act_dim # NOT the posterior!
+        in_prior += opt.act_dim
+    frame_predictor = lstm_models.lstm(         in_frame, opt.g_dim, opt.rnn_size, opt.predictor_rnn_layers, opt.batch_size)
+    posterior       = lstm_models.gaussian_lstm(in_postr, opt.z_dim, opt.rnn_size, opt.posterior_rnn_layers, opt.batch_size)
+    prior           = lstm_models.gaussian_lstm(in_prior, opt.z_dim, opt.rnn_size, opt.prior_rnn_layers,     opt.batch_size)
     frame_predictor.apply(utils.init_weights)
     posterior.apply(utils.init_weights)
     prior.apply(utils.init_weights)
@@ -231,7 +239,7 @@ testing_batch_generator = get_testing_batch()
 
 
 # -------------------------------- plotting funtions ------------------------------------ #
-def plot(x, epoch):
+def plot(x, epoch, x_acts=None):
     """Forms the sample_{epoch}.{gif,png} files.
 
     Shows the results of evaluation time, using n_eval, which may differ from training,
@@ -263,14 +271,22 @@ def plot(x, epoch):
         gen_seq[s].append(x[0])
         x_in = x[0]
 
-        # Daniel: as usual, iter `i` means x_{i-1} is most recent frame, SVG samples z_i
-        # and x_i. However, if it's before n_past, just use ground truth x_i for image.
+        # Daniel: as usual, iter `i` means x_{i-1} is most recently conditioned frame, SVG
+        # _samples_ z_i and x_i. I if it's before n_past, just use ground truth x_i for image.
         for i in range(1, opt.n_eval):
             h = encoder(x_in)
             if opt.last_frame_skip or i <= opt.n_past:  # Daniel: see issue report on GitHub
                 h, skip = h
             else:
                 h, _ = h
+
+            # Daniel: action conditioning. Updating h: (B,g_dim) --> (B, g_dim+4).
+            # Remember, while we generate images, actions should be interpreted as given.
+            # Given a_{i-1} we use that with Enc(prior_image) to get (predicted) x_i.
+            if x_acts is not None:
+                x_a = x_acts[i-1].cuda()
+                h = torch.cat([h, x_a], dim=1)  # overrides h
+
             h = h.detach()
             if i < opt.n_past:
                 h_target = encoder(x[i])
@@ -285,7 +301,7 @@ def plot(x, epoch):
                 # _after_ n_past. So instead we use the prior, which we cleverly kept
                 # updating during the ground truth stage (i < opt.n_past).
                 z_t, _, _ = prior(h)
-                h = frame_predictor(torch.cat([h, z_t], 1)).detach()
+                h = frame_predictor(torch.cat([h, z_t], 1)).detach()  # overrides h (fine)
                 x_in = decoder([h, skip]).detach()
                 gen_seq[s].append(x_in)
 
@@ -345,7 +361,7 @@ def plot(x, epoch):
     utils.save_gif(fname, gifs)
 
 
-def plot_rec(x, epoch):
+def plot_rec(x, epoch, x_acts=None):
     """Daniel: forms the rec_{epoch}.png files.
 
     Condition on first n_past frames, predict the next n_future frames. Example:
@@ -385,6 +401,13 @@ def plot_rec(x, epoch):
             h, skip = h
         else:
             h, _ = h
+
+        # Daniel: handle action conditioning. The prior isn't used at all, so we can
+        # move this later (but ordering must be h, then x_a, then z_t).
+        if x_acts is not None:
+            x_a = x_acts[i-1].cuda()
+            h = torch.cat([h, x_a], dim=1)
+
         h_target, _ = h_target
         h = h.detach()
         h_target = h_target.detach()
@@ -409,7 +432,7 @@ def plot_rec(x, epoch):
 
 
 # ------------------------------ training funtions ------------------------------------ #
-def train(x):
+def train(x, x_acts=None):
     """Daniel: iteration `i` means sampling z_i, PREDICTING x_i. Get E(x_i), decode to x_i.
 
     I like writing h = E[x_{t-1}] to remind me that it's an encoding.
@@ -427,6 +450,11 @@ def train(x):
     frames, and we're predicting x_2 and beyond. But the for loop will stop updating `skip`
     when i=1, meaning that the last GROUND TRUTH is x_0 because given iteration `i`, we are
     actually predicting x_i (while conditioning on x_{i-1}). I agree!
+
+    Update Jan2021: supports action-conditioning. See `data/fabrics.py` for details on the
+    data batches. Affects encoding for x_{i-1}, so we want action a_{i-1}. BTW,we can always
+    assume the 'ground truth' (it's not really ground truth) action is there, it's not what
+    we're predicting and at test time we'd supply candidate sequences of actions.
     """
     frame_predictor.zero_grad()
     posterior.zero_grad()
@@ -448,6 +476,12 @@ def train(x):
             h, skip = h
         else:
             h = h[0]
+
+        # Daniel: action conditioning. Updating h: (B,g_dim) --> (B, g_dim+4).
+        if x_acts is not None:
+            x_a = x_acts[i-1].cuda()
+            h = torch.cat([h, x_a], dim=1)
+
         z_t, mu, logvar = posterior(h_target)
         _, mu_p, logvar_p = prior(h)
         h_pred = frame_predictor(torch.cat([h, z_t], 1))
@@ -489,7 +523,7 @@ for epoch in range(opt.niter):
         # train frame_predictor
         if opt.action_cond:
             x_imgs, x_acts = x
-            mse, kld = train(x_imgs)  # TODO(daniel)
+            mse, kld = train(x_imgs, x_acts=x_acts)
         else:
             mse, kld = train(x)
         epoch_mse += mse
@@ -514,8 +548,8 @@ for epoch in range(opt.niter):
     x = next(testing_batch_generator)
     if opt.action_cond:
         x_imgs, x_acts = x
-        plot(x_imgs, epoch)
-        plot_rec(x_imgs, epoch)
+        plot(x_imgs, epoch, x_acts=x_acts)
+        plot_rec(x_imgs, epoch, x_acts=x_acts)
     else:
         plot(x, epoch)
         plot_rec(x, epoch)
