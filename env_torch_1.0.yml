@@ -11,6 +11,7 @@ dependencies:
 - tensorflow=1.13.1
 - pip
 - pip:
+  - opencv-python
   - cloudpickle==0.5.6
   - scikit-image==0.15
   - jedi==0.17.2

@@ -3,6 +3,7 @@ import torch
 import socket
 import argparse
 import os
+import cv2
 import numpy as np
 from sklearn.manifold import TSNE
 import scipy.misc
@@ -200,7 +201,10 @@ def save_np_img(fname, x):
 def make_image(tensor):
     """Daniel: if channels > 3, get rid of anything after first 3.
 
-    I'm seeing mean values that are close to 1, though, is that intended?
+    BTW: this function is deprecated, we should be using Image.fromarray(...):
+    https://docs.scipy.org/doc/scipy-1.2.1/reference/generated/scipy.misc.toimage.html
+    I _believe_ scipy.misc.toimage returns in RGB mode. I'm saving using OpenCV,
+    and that will save these images in BGR mode.
     """
     tensor = tensor.cpu().clamp(0, 1)
     if tensor.size(0) == 1:
@@ -237,6 +241,10 @@ def save_gif(filename, inputs, duration=0.25):
         [1, 640, 389] for 64x64 SM-MNIST
         [1, 560, 341] for 56x56 SM-MNIST
         [4, 560, 341] for 56x56 fabric-random
+
+    Update: actually the `np_image` that gets created after numpy-ing it will be put in
+    imageio.mimsave, and that saves in RGB mode. So we want to save in BGR mode to be
+    consistent with how we save with cv2 everywhere else, so we can convert.
     """
     def keep_only_rgb(x):
         assert x.dim() == 3, x.dim()
@@ -251,6 +259,11 @@ def save_gif(filename, inputs, duration=0.25):
             img = keep_only_rgb(img)
         img = img.transpose(0,1).transpose(1,2).clamp(0,1)
         np_image = (img.numpy() * 255.0).astype(np.uint8)
+
+        if np_image.shape[2] == 3:
+            #np_image = np_image[:,:,::-1]  # Daniel: also works
+            np_image = cv2.cvtColor(np_image, cv2.COLOR_RGB2BGR)
+
         images.append(np_image)
     imageio.mimsave(filename, images, duration=duration)
 
@@ -264,8 +277,20 @@ def save_gif_with_text(filename, inputs, text, duration=0.25):
     imageio.mimsave(filename, images, duration=duration)
 
 def save_image(filename, tensor):
+    """Save an image to `filename`.
+
+    Daniel: in our VSF code, we're saving using cv2.imwrite(), which saves in BGR.
+    But img.save uses PIL and that will save in RGB mode, which makes it hard to compare.
+    Therefore we should use cv2 whenever we can.
+
+    See refs such as:
+    https://note.nkmk.me/en/python-opencv-bgr-rgb-cvtcolor/
+    https://stackoverflow.com/questions/4661557/pil-rotate-image-colors-bgr-rgb
+    """
     img = make_image(tensor)
-    img.save(filename)
+    #img.save(filename)  # Daniel: I replaced this with the next two lines.
+    numpy_image = np.asarray(img)
+    cv2.imwrite(filename, numpy_image)
 
 def save_tensors_image(filename, inputs, padding=1):
     images = image_tensor(inputs, padding)
