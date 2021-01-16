@@ -329,6 +329,7 @@ def plot(x, epoch, x_acts=None):
                 min_idx = s
 
         # Daniel: this given code should be modified to make samples guaranteed as distinct.
+        # Hard-coding 5 here. Change this if desired.
         #s_list = [min_idx,
         #          np.random.randint(nsample),
         #          np.random.randint(nsample),
@@ -339,6 +340,8 @@ def plot(x, epoch, x_acts=None):
         for s_idx in s_indices:
             if s_idx in s_list:
                 continue  # avoid equal to min_idx case
+            if len(s_list) == 5:
+                continue
             s_list.append(s_idx)
 
         for ss in range(len(s_list)):
