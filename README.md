@@ -186,7 +186,15 @@ python train_svg_lp.py --dataset fabric-random --g_dim 128 --z_dim 10 --beta 0.0
 Without `--action_cond`, the model can still generate some predictions, but
 actions should hopefully make them sharper.
 
-TODO: results?
+To plot results, use:
+
+```
+python plot_svg.py --path /data/svg/logs/fabric-random/
+```
+
+It will iterate through the different models within the subdirectory (the
+directories with the very long names) and plot the MSE and KL divergence
+losses.
 
 
 [1]:https://github.com/edenton/svg/pull/6
