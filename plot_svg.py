@@ -40,8 +40,18 @@ def plot_losses(args, directory):
     xs = data['epoch']
     cumsum = data['tot_train'][-1]
     print(f'Plotting over {len(xs)} epochs, total number of training samples consumed: {cumsum}')
-    ax[0,0].plot(xs, data['mse_loss'], lw=lw)
-    ax[0,1].plot(xs, data['kld_loss'], lw=lw)
+    loss_mse = data['mse_loss']
+    loss_kld = data['kld_loss']
+    label0 = f'Train MSE; Min: {np.min(loss_mse):0.4f}'
+    label1 = f'Train KLD; Min: {np.min(loss_kld):0.3f}'
+    ax[0,0].plot(xs, loss_mse, lw=lw, label=label0)
+    ax[0,1].plot(xs, loss_kld, lw=lw, label=label1)
+
+    # Set appropriate y-axis range for MSE.
+    eps = 0.0005
+    min_y = 0.0 - eps
+    max_y = np.max(loss_mse) + eps
+    ax[0,0].set_ylim([min_y, max_y])
 
     # Bells and whistles.
     ax[0,0].set_title(f'MSE Loss', size=titlesize)
