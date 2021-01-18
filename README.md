@@ -174,19 +174,28 @@ Using the same 3 context frames and 7 future frames training setting from
 earlier results, we can train fabric prediction. For evaluation, we shouldn't
 use 30 (our trajectories are only of length 15) so maybe use 10? DCGAN is
 probably more desirable than VGG here. For most other hyperparameters, I'm
-sticking to those used in SM-MNIST.
+sticking to those used in SM-MNIST. Here is 1500 "epochs" (niter) of training:
 
 ```
 python train_svg_lp.py --dataset fabric-random --g_dim 128 --z_dim 10 --beta 0.0001 \
     --n_past 3  --n_future 7  --n_eval 10  --channels 4  --image_width 56 \
     --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/ \
-    --epoch_size 100  --niter 1000  --action_cond
+    --epoch_size 100  --niter 1500  --action_cond
 ```
 
 Without `--action_cond`, the model can still generate some predictions, but
-actions should hopefully make them sharper.
+actions should hopefully make them sharper. Also consider using the newer
+dataset which has a smaller horizon of 10, though we can still do 3 context and
+7 future (but cannot do more than that, obviously):
 
-To plot results, use:
+```
+python train_svg_lp.py --dataset fabric-random --g_dim 128 --z_dim 10 --beta 0.0001 \
+    --n_past 3  --n_future 7  --n_eval 10  --channels 4  --image_width 56 \
+    --data_root /data/svg/fabric-01_2021  --log_dir /data/svg/logs/ \
+    --epoch_size 100  --niter 1500  --action_cond
+```
+
+To plot results for MSE and KL Divergence losses, use:
 
 ```
 python plot_svg.py --path /data/svg/logs/fabric-random/

@@ -2,9 +2,13 @@
 I think it's easier to split the hdf5 file beforehand, so we get train and
 test splits that we use. Then loading fabric data is a breeze.
 Note: requires protocol=4 for large pickle file dumping.
-Example output:
 
-~/svg $ python data/fabric_train_test.py
+Run: python data/fabric_train_test.py
+
+---------------------------------------------------------------------------------
+Output from the RSS 2020 data:
+---------------------------------------------------------------------------------
+
 N: 7003, len idxs_t,idxs_v: 5602, 1401
 train image shape (5602, 16, 56, 56, 4) action: (5602, 15, 4)
 valid image shape (1401, 16, 56, 56, 4) action: (1401, 15, 4)
@@ -28,13 +32,47 @@ Now for RGBD channels (c=3 means depth):
 Now actions:
  tr  acts min/max/mean: -1.00, 1.00, -0.0037
  val acts min/max/mean: -1.00, 1.00, 0.0002
+
+---------------------------------------------------------------------------------
+Output from the 01-2021 data:
+FYI this has episode lengths of 10. Images are uint8 to save space.
+The action magnitudes are also larger at the extremes.
+---------------------------------------------------------------------------------
+
+N: 9932, len idxs_t,idxs_v: 7945, 1987
+train image shape (7945, 11, 56, 56, 4) action: (7945, 10, 4)
+valid image shape (1987, 11, 56, 56, 4) action: (1987, 10, 4)
+	type img: uint8 action: float32
+	type img: uint8 action: float32
+
+Some data statistics:
+ tr  min/max/mean/medi: 0.00, 255.00, 137.347, 144.00
+ val min/max/mean/medi: 0.00, 255.00, 137.132, 144.00
+
+Now for RGBD channels (c=3 means depth):
+ c0  min/max/mean: 0.00, 255.00, 128.85
+ c0  min/max/mean: 0.00, 255.00, 128.79
+ c1  min/max/mean: 0.00, 255.00, 130.96
+ c1  min/max/mean: 0.00, 255.00, 131.14
+ c2  min/max/mean: 0.00, 255.00, 138.74
+ c2  min/max/mean: 0.00, 255.00, 138.09
+ c3  min/max/mean: 0.00, 228.00, 150.84
+ c3  min/max/mean: 0.00, 228.00, 150.51
+
+Now actions:
+ tr  acts min/max/mean: -1.37, 1.37, -0.0004
+ val acts min/max/mean: -1.35, 1.35, -0.0005
 """
+import os
 import socket
 import numpy as np
 import h5py
 import pickle
 
-data_root = '/data/svg/fabric-random/pure_random.hdf5'
+#ROOT = '/data/svg/fabric-random/'
+ROOT = '/data/svg/fabric-01_2021/'
+#data_root = os.path.join(ROOT, 'pure_random.hdf5')
+data_root = os.path.join(ROOT, 'data.hdf5')
 
 # Copy hdf5 files to numpy arrays with `[:]`.
 with h5py.File(data_root, 'r') as f:
@@ -50,8 +88,10 @@ idxs_t = indices[:num_t]
 idxs_v = indices[num_t:]
 
 # File names.
-pth_train = f'/data/svg/fabric-random/pure_random_train_{str(num_t).zfill(5)}.pkl'
-pth_valid = f'/data/svg/fabric-random/pure_random_valid_{str(num_v).zfill(5)}.pkl'
+#pth_train = os.path.join(ROOT, f'pure_random_train_{str(num_t).zfill(5)}.pkl')
+#pth_valid = os.path.join(ROOT, f'pure_random_valid_{str(num_v).zfill(5)}.pkl')
+pth_train = os.path.join(ROOT, f'01-2021_train_{str(num_t).zfill(5)}.pkl')
+pth_valid = os.path.join(ROOT, f'01-2021_valid_{str(num_v).zfill(5)}.pkl')
 
 # Split up the data.
 d_train = {'images': d_images[idxs_t], 'actions': d_actions[idxs_t]}

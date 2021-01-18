@@ -4,6 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 import h5py
+from os.path import join
 
 
 class FabricsData(Dataset):
@@ -24,6 +25,8 @@ class FabricsData(Dataset):
 
     We should have run `python data/fabric_train_test.py` beforehand to generate pickle
     files, which are what we actually load.
+
+    Update: we also support a second fabric data type.
     """
 
     def __init__(self, train, data_root, seq_len, image_size=56, n_channels=4, use_actions=True):
@@ -33,12 +36,20 @@ class FabricsData(Dataset):
         self.image_size = image_size
         self.n_channels = n_channels
         self.use_actions = use_actions
+        _, tail = os.path.split( data_root.rstrip('/') )
 
-        # We already made pickle files with `fabric_train_test.py`.
+        # We already made pickle files with `fabric_train_test.py`. Adjust if needed.
         if self.train:
-            path = os.path.join(data_root, 'pure_random_train_05602.pkl')
+            if tail == 'fabric_random':
+                path = join(data_root, 'pure_random_train_05602.pkl')
+            elif tail == 'fabric-01_2021':
+                path = join(data_root, '01-2021_train_07945.pkl')
         else:
-            path = os.path.join(data_root, 'pure_random_valid_01401.pkl')
+            if tail == 'fabric_random':
+                path = join(data_root, 'pure_random_valid_01401.pkl')
+            elif tail == 'fabric-01_2021':
+                path = join(data_root, '01-2021_valid_01987.pkl')
+
         with open(path, 'rb') as fh:
             data = pickle.load(fh)
             self.d_actions = data['actions']

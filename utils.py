@@ -70,9 +70,11 @@ def load_dataset(opt):
                 data_root=opt.data_root,
                 seq_len=opt.n_eval,
                 image_size=opt.image_width)
-    elif opt.dataset == 'fabric-random':
-        # Version we used for RSS 2020. Hard-coding image size of 56x56. We can try
-        # use_actions=False to test, but we really need it True for final results.
+    elif opt.dataset in ['fabric-random', 'fabric-01_2021']:
+        # fabric-random: used in RSS 2020. Hard-coding image size of 56x56. We can
+        # try use_actions=False to test, but we really need it True for real results.
+        # Other version is fabric-01_2021. We can detect which one from the tail of
+        # opt.data_root.
         from data.fabrics import FabricsData
         train_data = FabricsData(
                 train=True,
