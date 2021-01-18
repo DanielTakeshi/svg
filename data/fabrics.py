@@ -78,7 +78,7 @@ class FabricsData(Dataset):
         assert np.max(self.d_actions) <=  1.0, np.max(self.d_actions)
 
         # Finally, divide by 255 so that values are in expected ranges.
-        self.d_images /= 255.0
+        self.d_images = (self.d_images / 255.0).astype(np.float32)
 
     def __len__(self):
         return self.N
