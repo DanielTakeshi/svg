@@ -129,7 +129,7 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
         sequence.transpose_(0, 1)
 
     if sequence_acts is not None:
-        assert opt.dataset in ['fabric-random'], opt.dataset
+        assert opt.dataset in ['fabric-random', 'fabric-01_2021'], opt.dataset
         sequence_imgs = sequence_input(sequence, dtype) # same as usual
         sequence_acts.transpose_(0, 1)                  # new for actions
         #sequence_acts = sequence_acts[opt.n_past-1 : ]  # DO NOT DO THIS
