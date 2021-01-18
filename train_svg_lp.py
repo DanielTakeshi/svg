@@ -181,6 +181,7 @@ decoder_optimizer = opt.optimizer(decoder.parameters(), lr=opt.lr, betas=(opt.be
 
 # --------- loss functions ------------------------------------
 mse_criterion = nn.MSELoss()
+
 def kl_criterion(mu1, logvar1, mu2, logvar2):
     # KL( N(mu_1, sigma2_1) || N(mu_2, sigma2_2)) = log( sqrt(
     # Daniel: unlike in FP case, here we have two non-identity Gaussians.
@@ -188,6 +189,26 @@ def kl_criterion(mu1, logvar1, mu2, logvar2):
     sigma2 = logvar2.mul(0.5).exp()
     kld = torch.log(sigma2/sigma1) + (torch.exp(logvar1) + (mu1 - mu2)**2)/(2*torch.exp(logvar2)) - 1/2
     return kld.sum() / opt.batch_size
+
+def get_mse_components(x, y, split=False):
+    """Daniel: adding to compute MSEs (but avoid PyTorch optimization).
+    https://stackoverflow.com/questions/55266154/pytorch-preferred-way-to-copy-a-tensor
+    Computes portion of the MSE contributed from RGB vs D components, sums to full MSE.
+    Well, if split=True. If split=False then it's pretty easy.
+    """
+    assert x.is_cuda and y.is_cuda
+    a = x.detach().clone().cpu().numpy()
+    b = y.detach().clone().cpu().numpy()
+    assert a.shape == b.shape
+    if split:
+        num_items = np.prod(a.shape)
+        #mse_0 = ((a[:,:3,:,:] - b[:,:3,:,:]) ** 2).mean()  # No, will divide by a smaller number.
+        #mse_1 = ((a[:,3:,:,:] - b[:,3:,:,:]) ** 2).mean()  # No, will divide by a smaller number.
+        mse_0 = np.sum((a[:,:3,:,:] - b[:,:3,:,:]) ** 2) / num_items  # RGB 'portion'
+        mse_1 = np.sum((a[:,3:,:,:] - b[:,3:,:,:]) ** 2) / num_items  # D 'portion'
+        return (mse_0, mse_1)
+    else:
+        return ((a-b)**2).mean()
 
 # --------- transfer to gpu ------------------------------------
 frame_predictor.cuda()
@@ -382,12 +403,17 @@ def plot_rec(x, epoch, x_acts=None):
     should have the first `n_past` frames look sharp since they are from the data.
 
     NOTE: the prior is not used at all here (why?), whereas plot uses the prior.
+
+    Update Jan2021: let's change this so we return the MSEs of all the frames that
+    are NOT ground truth, so compare decoded frame vs ground truth and average over
+    the future frames (not past+future as in the train method).
     """
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     gen_seq = []
     gen_seq.append(x[0])
     x_in = x[0]
+    mse_decode = 0
 
     for i in range(1, opt.n_past+opt.n_future):
         h = encoder(x[i-1])
@@ -415,6 +441,10 @@ def plot_rec(x, epoch, x_acts=None):
             x_pred = decoder([h_pred, skip]).detach()
             gen_seq.append(x_pred)
 
+            # Daniel: handle decoder MSE predictions, happens n_future times.
+            mse_decode += get_mse_components(x_pred, x[i], split=False)
+
+    # Plotting.
     to_plot = []
     nrow = min(opt.batch_size, 10)
     for i in range(nrow):
@@ -424,6 +454,10 @@ def plot_rec(x, epoch, x_acts=None):
         to_plot.append(row)
     fname = '%s/gen/rec_%d.png' % (opt.log_dir, epoch)
     utils.save_tensors_image(fname, to_plot)
+
+    # New, returning 'validation' decoding. This will be slightly noisier than training
+    # MSE since it's only one minibatch, whereas train MSE covers an entire epoch.
+    return mse_decode / opt.n_future
 
 
 # ------------------------------ training funtions ------------------------------------ #
@@ -465,24 +499,8 @@ def train(x, x_acts=None):
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     prior.hidden = prior.init_hidden()
-
-    # Daniel: adding to compute MSEs (but avoid PyTorch optimization).
-    # https://stackoverflow.com/questions/55266154/pytorch-preferred-way-to-copy-a-tensor
-    # Computes portion of the MSE contributed from RGB vs D components, sums to full MSE.
-    def get_mse(x, y):
-        assert x.is_cuda and y.is_cuda
-        a = x.detach().clone().cpu().numpy()
-        b = y.detach().clone().cpu().numpy()
-        assert a.shape == b.shape
-        num_items = np.prod(a.shape)
-        #mse_0 = ((a[:,:3,:,:] - b[:,:3,:,:]) ** 2).mean()  # No, will divide by a smaller number.
-        #mse_1 = ((a[:,3:,:,:] - b[:,3:,:,:]) ** 2).mean()  # No, will divide by a smaller number.
-        mse_0 = np.sum((a[:,:3,:,:] - b[:,:3,:,:]) ** 2) / num_items  # RGB 'portion'
-        mse_1 = np.sum((a[:,3:,:,:] - b[:,3:,:,:]) ** 2) / num_items  # D 'portion'
-        return (mse_0, mse_1)
-    mse_rgb = 0
-    mse_d   = 0
-
+    mse_c = 0
+    mse_d = 0
     mse = 0
     kld = 0
     for i in range(1, opt.n_past+opt.n_future):
@@ -507,9 +525,9 @@ def train(x, x_acts=None):
 
         # Daniel: adding new statistics, assumes 4 channel images.
         if x_acts is not None:
-            this_rgb, this_d = get_mse(x_pred, x[i])
-            mse_rgb += this_rgb
-            mse_d   += this_d
+            this_c, this_d = get_mse_components(x_pred, x[i], split=True)
+            mse_c += this_c
+            mse_d += this_d
 
     # Compute loss function and step optimizers.
     loss = mse + kld*opt.beta
@@ -520,12 +538,13 @@ def train(x, x_acts=None):
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    mse_cpu = mse.data.cpu().numpy() / (opt.n_past + opt.n_future)
-    kld_cpu = kld.data.cpu().numpy() / (opt.n_past + opt.n_future)
+    # Daniel: shouldn't these be divided by npast + nfuture MINUS one? For loop starts at 1.
+    mse_cpu = mse.data.cpu().numpy() / (opt.n_past + opt.n_future - 1)
+    kld_cpu = kld.data.cpu().numpy() / (opt.n_past + opt.n_future - 1)
     if x_acts is not None:
-        mse_rgb = mse_rgb / (opt.n_past + opt.n_future)
-        mse_d   = mse_d   / (opt.n_past + opt.n_future)
-        return (mse_cpu, kld_cpu, mse_rgb, mse_d)
+        mse_c = mse_c / (opt.n_past + opt.n_future - 1)
+        mse_d = mse_d / (opt.n_past + opt.n_future - 1)
+        return (mse_cpu, kld_cpu, mse_c, mse_d)
     else:
         return (mse_cpu, kld_cpu)
 
@@ -567,10 +586,10 @@ for epoch in range(opt.niter):
     utils.clear_progressbar()
     if opt.action_cond:
         print('[%02d] mse loss: %.5f | C: %.5f, D: %.5f | kld loss: %.5f (%d)' % (epoch,
-                epoch_mse / opt.epoch_size,
+                epoch_mse   / opt.epoch_size,
                 epoch_mse_c / opt.epoch_size,
                 epoch_mse_d / opt.epoch_size,
-                epoch_kld / opt.epoch_size,
+                epoch_kld   / opt.epoch_size,
                 epoch * opt.epoch_size * opt.batch_size))
     else:
         print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch,
@@ -592,14 +611,17 @@ for epoch in range(opt.niter):
     posterior.eval()
     prior.eval()
 
+    # Daniel: should also be adding testing set statistics.
     x = next(testing_batch_generator)
     if opt.action_cond:
         x_imgs, x_acts = x
         plot(x_imgs, epoch, x_acts=x_acts)
-        plot_rec(x_imgs, epoch, x_acts=x_acts)
+        valid_mse = plot_rec(x_imgs, epoch, x_acts=x_acts)
     else:
         plot(x, epoch)
-        plot_rec(x, epoch)
+        valid_mse = plot_rec(x, epoch)
+    LOSSES['valid_mse_loss_rec'].append(valid_mse)  # No need to divide by epoch
+    print('[%02d] mse loss: %.5f [valid, rec]' % (epoch, valid_mse))
 
     # save the model
     torch.save({
