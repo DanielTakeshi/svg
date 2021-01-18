@@ -1,16 +1,21 @@
-import torch
-import torch.optim as optim
-import torch.nn as nn
-import argparse
+"""Daniel: should use this to load data and evaluate. However by default we only
+save one model, so we may want to do something like this periodically during training.
+"""
 import os
+import sys
+import pickle
 import random
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-import utils
+import argparse
 import itertools
 import progressbar
 import numpy as np
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
 from scipy.ndimage.filters import gaussian_filter
+import utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', default=100, type=int, help='batch size')
@@ -23,24 +28,22 @@ parser.add_argument('--n_future', type=int, default=28, help='number of frames t
 parser.add_argument('--num_threads', type=int, default=0, help='number of data loading threads')
 parser.add_argument('--nsample', type=int, default=100, help='number of samples')
 parser.add_argument('--N', type=int, default=256, help='number of samples')
-
-
+# Daniel: any arguments I added.
+parser.add_argument('--action_cond', action='store_true', default=False, help='true to make this action conditioned')
+parser.add_argument('--act_dim', type=int, default=4, help='Need to adjust architecture a bit')
+parser.add_argument('--act_design', type=int, default=1, help='TODO(daniel) if we try multiple designs.')
 opt = parser.parse_args()
+
 os.makedirs('%s' % opt.log_dir, exist_ok=True)
-
-
-opt.n_eval = opt.n_past+opt.n_future
+opt.n_eval = opt.n_past + opt.n_future
 opt.max_step = opt.n_eval
-
 print("Random Seed: ", opt.seed)
 random.seed(opt.seed)
 torch.manual_seed(opt.seed)
 torch.cuda.manual_seed_all(opt.seed)
 dtype = torch.cuda.FloatTensor
 
-
-
-# ---------------- load the models  ----------------
+# ------------------------------ load the models  -------------------------------- #
 tmp = torch.load(opt.model_path)
 frame_predictor = tmp['frame_predictor']
 posterior = tmp['posterior']
@@ -50,8 +53,8 @@ prior.eval()
 posterior.eval()
 encoder = tmp['encoder']
 decoder = tmp['decoder']
-encoder.train()
-decoder.train()
+encoder.train()  # TODO(daniel) why was this originally train mode? we're evaluating?
+decoder.train()  # TODO(daniel) why was this originally train mode? we're evaluating?
 frame_predictor.batch_size = opt.batch_size
 posterior.batch_size = opt.batch_size
 prior.batch_size = opt.batch_size
@@ -59,23 +62,21 @@ opt.g_dim = tmp['opt'].g_dim
 opt.z_dim = tmp['opt'].z_dim
 opt.num_digits = tmp['opt'].num_digits
 
-# --------- transfer to gpu ------------------------------------
+# ------------------------------ transfer to gpu ---------------------------------- #
 frame_predictor.cuda()
 posterior.cuda()
 prior.cuda()
 encoder.cuda()
 decoder.cuda()
 
-# ---------------- set the options ----------------
+# ------------------------------ set the options ---------------------------------- #
 opt.dataset = tmp['opt'].dataset
 opt.last_frame_skip = tmp['opt'].last_frame_skip
 opt.channels = tmp['opt'].channels
 opt.image_width = tmp['opt'].image_width
-
 print(opt)
 
-
-# --------- load a dataset ------------------------------------
+# ---------------------------- load a dataset ------------------------------------ #
 train_data, test_data = utils.load_dataset(opt)
 
 train_loader = DataLoader(train_data,
@@ -102,10 +103,10 @@ def get_testing_batch():
     while True:
         for sequence in test_loader:
             batch = utils.normalize_data(opt, dtype, sequence)
-            yield batch 
+            yield batch
 testing_batch_generator = get_testing_batch()
 
-# --------- eval funtions ------------------------------------
+# ------------------------------- eval funtions ------------------------------------ #
 
 def make_gifs(x, idx, name):
     # get approx posterior sample
@@ -117,21 +118,20 @@ def make_gifs(x, idx, name):
     for i in range(1, opt.n_eval):
         h = encoder(x_in)
         h_target = encoder(x[i])[0].detach()
-        if opt.last_frame_skip or i < opt.n_past:	
+        if opt.last_frame_skip or i < opt.n_past:
             h, skip = h
         else:
             h, _ = h
         h = h.detach()
         _, z_t, _= posterior(h_target) # take the mean
         if i < opt.n_past:
-            frame_predictor(torch.cat([h, z_t], 1)) 
+            frame_predictor(torch.cat([h, z_t], 1))
             posterior_gen.append(x[i])
             x_in = x[i]
         else:
             h_pred = frame_predictor(torch.cat([h, z_t], 1)).detach()
             x_in = decoder([h_pred, skip]).detach()
             posterior_gen.append(x_in)
-  
 
     nsample = opt.nsample
     ssim = np.zeros((opt.batch_size, nsample, opt.n_future))
@@ -150,7 +150,7 @@ def make_gifs(x, idx, name):
         all_gen[s].append(x_in)
         for i in range(1, opt.n_eval):
             h = encoder(x_in)
-            if opt.last_frame_skip or i < opt.n_past:	
+            if opt.last_frame_skip or i < opt.n_past:
                 h, skip = h
             else:
                 h, _ = h
@@ -182,17 +182,17 @@ def make_gifs(x, idx, name):
         ordered = np.argsort(mean_ssim)
         rand_sidx = [np.random.randint(nsample) for s in range(3)]
         for t in range(opt.n_eval):
-            # gt 
+            # gt
             gifs[t].append(add_border(x[t][i], 'green'))
             text[t].append('Ground\ntruth')
-            #posterior 
+            #posterior
             if t < opt.n_past:
                 color = 'green'
             else:
                 color = 'red'
             gifs[t].append(add_border(posterior_gen[t][i], color))
             text[t].append('Approx.\nposterior')
-            # best 
+            # best
             if t < opt.n_past:
                 color = 'green'
             else:
@@ -205,15 +205,16 @@ def make_gifs(x, idx, name):
                 gifs[t].append(add_border(all_gen[rand_sidx[s]][t][i], color))
                 text[t].append('Random\nsample %d' % (s+1))
 
-        fname = '%s/%s_%d.gif' % (opt.log_dir, name, idx+i) 
+        fname = '%s/%s_%d.gif' % (opt.log_dir, name, idx+i)
         utils.save_gif_with_text(fname, gifs, text)
+
 
 def add_border(x, color, pad=1):
     w = x.size()[1]
     nc = x.size()[0]
     px = Variable(torch.zeros(3, w+2*pad+30, w+2*pad))
     if color == 'red':
-        px[0] =0.7 
+        px[0] =0.7
     elif color == 'green':
         px[1] = 0.7
     if nc == 1:
@@ -223,13 +224,13 @@ def add_border(x, color, pad=1):
         px[:, pad:w+pad, pad:w+pad] = x
     return px
 
+
+# ---------------------------------- main method ------------------------------------ #
+
+# Plot train, then test.
 for i in range(0, opt.N, opt.batch_size):
-    # plot train
     train_x = next(training_batch_generator)
     make_gifs(train_x, i, 'train')
-
-    # plot test
     test_x = next(testing_batch_generator)
     make_gifs(test_x, i, 'test')
-    print(i)
-
+    print(f'Done with: i={str(i).zfill(3)}')

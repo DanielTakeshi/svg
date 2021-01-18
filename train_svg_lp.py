@@ -105,11 +105,9 @@ random.seed(opt.seed)
 torch.manual_seed(opt.seed)
 torch.cuda.manual_seed_all(opt.seed)
 dtype = torch.cuda.FloatTensor
-
-# ---------------- load the models  ----------------
 print(opt)
 
-# ---------------- optimizers ----------------
+# -------------------------------------- optimizers ------------------------------------- #
 if opt.optimizer == 'adam':
     opt.optimizer = optim.Adam
 elif opt.optimizer == 'rmsprop':
@@ -329,13 +327,7 @@ def plot(x, epoch, x_acts=None):
                 min_idx = s
 
         # Daniel: this given code should be modified to make samples guaranteed as distinct.
-        # Hard-coding 5 here. Change this if desired.
-        #s_list = [min_idx,
-        #          np.random.randint(nsample),
-        #          np.random.randint(nsample),
-        #          np.random.randint(nsample),
-        #          np.random.randint(nsample)]
-        s_indices = np.random.permutation(5)
+        s_indices = np.random.permutation(5)  # Hard-coding 5 here. Change if desired.
         s_list = [min_idx]
         for s_idx in s_indices:
             if s_idx in s_list:
@@ -438,6 +430,9 @@ def plot_rec(x, epoch, x_acts=None):
 def train(x, x_acts=None):
     """Daniel: iteration `i` means sampling z_i, PREDICTING x_i. Get E(x_i), decode to x_i.
 
+    Returns: a tuple
+        (mse_loss, kld_loss) or (mse_loss, kld_loss, mse_rgb, mse_depth)
+
     I like writing h = E[x_{t-1}] to remind me that it's an encoding.
     Shapes for frame predictor stuff:
         Assume g_dim (hidden variable) dim. is 128, and latent variable dim. is 10.
@@ -454,10 +449,11 @@ def train(x, x_acts=None):
     when i=1, meaning that the last GROUND TRUTH is x_0 because given iteration `i`, we are
     actually predicting x_i (while conditioning on x_{i-1}). I agree!
 
-    Update Jan2021: supports action-conditioning. See `data/fabrics.py` for details on the
-    data batches. Affects encoding for x_{i-1}, so we want action a_{i-1}. BTW,we can always
+    Update Jan2021: now supports action-conditioning. See `data/fabrics.py` for details on
+    data batches. Affects encoding for x_{i-1}, so we want action a_{i-1}. BTW we can always
     assume the 'ground truth' (it's not really ground truth) action is there, it's not what
-    we're predicting and at test time we'd supply candidate sequences of actions.
+    we're predicting and at test time we'd supply candidate sequences of actions. Also, for
+    tracking RGB and D statistics, returns an extra item.
     """
     frame_predictor.zero_grad()
     posterior.zero_grad()
@@ -469,6 +465,23 @@ def train(x, x_acts=None):
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     prior.hidden = prior.init_hidden()
+
+    # Daniel: adding to compute MSEs (but avoid PyTorch optimization).
+    # https://stackoverflow.com/questions/55266154/pytorch-preferred-way-to-copy-a-tensor
+    # Computes portion of the MSE contributed from RGB vs D components, sums to full MSE.
+    def get_mse(x, y):
+        assert x.is_cuda and y.is_cuda
+        a = x.detach().clone().cpu().numpy()
+        b = y.detach().clone().cpu().numpy()
+        assert a.shape == b.shape
+        num_items = np.prod(a.shape)
+        #mse_0 = ((a[:,:3,:,:] - b[:,:3,:,:]) ** 2).mean()  # No, will divide by a smaller number.
+        #mse_1 = ((a[:,3:,:,:] - b[:,3:,:,:]) ** 2).mean()  # No, will divide by a smaller number.
+        mse_0 = np.sum((a[:,:3,:,:] - b[:,:3,:,:]) ** 2) / num_items  # RGB 'portion'
+        mse_1 = np.sum((a[:,3:,:,:] - b[:,3:,:,:]) ** 2) / num_items  # D 'portion'
+        return (mse_0, mse_1)
+    mse_rgb = 0
+    mse_d   = 0
 
     mse = 0
     kld = 0
@@ -492,15 +505,29 @@ def train(x, x_acts=None):
         mse += mse_criterion(x_pred, x[i])
         kld += kl_criterion(mu, logvar, mu_p, logvar_p)
 
+        # Daniel: adding new statistics, assumes 4 channel images.
+        if x_acts is not None:
+            this_rgb, this_d = get_mse(x_pred, x[i])
+            mse_rgb += this_rgb
+            mse_d   += this_d
+
+    # Compute loss function and step optimizers.
     loss = mse + kld*opt.beta
     loss.backward()
-
     frame_predictor_optimizer.step()
     posterior_optimizer.step()
     prior_optimizer.step()
     encoder_optimizer.step()
     decoder_optimizer.step()
-    return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
+
+    mse_cpu = mse.data.cpu().numpy() / (opt.n_past + opt.n_future)
+    kld_cpu = kld.data.cpu().numpy() / (opt.n_past + opt.n_future)
+    if x_acts is not None:
+        mse_rgb = mse_rgb / (opt.n_past + opt.n_future)
+        mse_d   = mse_d   / (opt.n_past + opt.n_future)
+        return (mse_cpu, kld_cpu, mse_rgb, mse_d)
+    else:
+        return (mse_cpu, kld_cpu)
 
 
 # ------------------------------- TRAINING LOOP ------------------------------------ #
@@ -514,6 +541,8 @@ for epoch in range(opt.niter):
     decoder.train()
     epoch_mse = 0
     epoch_kld = 0
+    epoch_mse_c = 0
+    epoch_mse_d = 0
     progress = progressbar.ProgressBar(max_value=opt.epoch_size).start()
 
     for i in range(opt.epoch_size):
@@ -526,7 +555,9 @@ for epoch in range(opt.niter):
         # train frame_predictor
         if opt.action_cond:
             x_imgs, x_acts = x
-            mse, kld = train(x_imgs, x_acts=x_acts)
+            mse, kld, mse_c, mse_d = train(x_imgs, x_acts=x_acts)
+            epoch_mse_c += mse_c
+            epoch_mse_d += mse_d
         else:
             mse, kld = train(x)
         epoch_mse += mse
@@ -534,12 +565,25 @@ for epoch in range(opt.niter):
 
     progress.finish()
     utils.clear_progressbar()
-    print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch,
-            epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
+    if opt.action_cond:
+        print('[%02d] mse loss: %.5f | C: %.5f, D: %.5f | kld loss: %.5f (%d)' % (epoch,
+                epoch_mse / opt.epoch_size,
+                epoch_mse_c / opt.epoch_size,
+                epoch_mse_d / opt.epoch_size,
+                epoch_kld / opt.epoch_size,
+                epoch * opt.epoch_size * opt.batch_size))
+    else:
+        print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch,
+                epoch_mse / opt.epoch_size,
+                epoch_kld / opt.epoch_size,
+                epoch * opt.epoch_size * opt.batch_size))
     LOSSES['epoch'].append(epoch)
-    LOSSES['mse_loss'].append(epoch_mse/opt.epoch_size)
-    LOSSES['kld_loss'].append(epoch_kld/opt.epoch_size)
-    LOSSES['tot_train'].append(epoch*opt.epoch_size*opt.batch_size)
+    LOSSES['mse_loss'].append(epoch_mse / opt.epoch_size)
+    LOSSES['kld_loss'].append(epoch_kld / opt.epoch_size)
+    LOSSES['tot_train'].append(epoch * opt.epoch_size * opt.batch_size)
+    if opt.action_cond:
+        LOSSES['mse_loss_C'].append(epoch_mse_c / opt.epoch_size)
+        LOSSES['mse_loss_D'].append(epoch_mse_d / opt.epoch_size)
 
     # plot some stuff [Daniel: I set encoder and decoder to use eval(), I can't see the harm?]
     frame_predictor.eval()

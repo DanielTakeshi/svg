@@ -40,15 +40,19 @@ class FabricsData(Dataset):
 
         # We already made pickle files with `fabric_train_test.py`. Adjust if needed.
         if self.train:
-            if tail == 'fabric_random':
+            if tail == 'fabric-random':
                 path = join(data_root, 'pure_random_train_05602.pkl')
             elif tail == 'fabric-01_2021':
                 path = join(data_root, '01-2021_train_07945.pkl')
+            else:
+                raise ValueError(tail)
         else:
-            if tail == 'fabric_random':
+            if tail == 'fabric-random':
                 path = join(data_root, 'pure_random_valid_01401.pkl')
             elif tail == 'fabric-01_2021':
                 path = join(data_root, '01-2021_valid_01987.pkl')
+            else:
+                raise ValueError(tail)
 
         with open(path, 'rb') as fh:
             data = pickle.load(fh)
