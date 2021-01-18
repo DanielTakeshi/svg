@@ -37,6 +37,7 @@ Now actions:
 Output from the 01-2021 data:
 FYI this has episode lengths of 10. Images are uint8 to save space.
 The action magnitudes are also larger at the extremes.
+UPDATE: after discussion with Ryan, I clip the actions here.
 ---------------------------------------------------------------------------------
 
 N: 9932, len idxs_t,idxs_v: 7945, 1987
@@ -125,6 +126,10 @@ print(' tr  acts min/max/mean: {:0.2f}, {:0.2f}, {:0.4f}'.format(
         d_train['actions'].min(), d_train['actions'].max(), d_train['actions'].mean()))
 print(' val acts min/max/mean: {:0.2f}, {:0.2f}, {:0.4f}'.format(
         d_valid['actions'].min(), d_valid['actions'].max(), d_valid['actions'].mean()))
+
+# CLIP
+d_train['actions'] = np.clip(d_train['actions'], a_min=-1.0, a_max=1.0)
+d_valid['actions'] = np.clip(d_valid['actions'], a_min=-1.0, a_max=1.0)
 
 with open(pth_valid, 'wb') as fh:
     pickle.dump(d_valid, fh, protocol=4)

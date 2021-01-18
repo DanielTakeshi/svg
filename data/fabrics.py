@@ -58,6 +58,8 @@ class FabricsData(Dataset):
             data = pickle.load(fh)
             self.d_actions = data['actions']
             self.d_images = data['images']
+            assert np.min(self.d_actions) >= -1.0, np.min(self.d_actions)
+            assert np.max(self.d_actions) <=  1.0, np.max(self.d_actions)
 
         # Get number of items and episode length (for that use actions, NOT images)
         self.N = self.d_actions.shape[0]
