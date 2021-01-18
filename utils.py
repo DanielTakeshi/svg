@@ -122,7 +122,7 @@ def normalize_data(opt, dtype, sequence, sequence_acts=None):
             no this is bad, we actually do need the first few actions so that we can
             get consistent input dimensions during ground truth stage. AH!
     """
-    if opt.dataset in ['smmnist', 'kth', 'bair', 'fabric-random']:
+    if opt.dataset in ['smmnist', 'kth', 'bair', 'fabric-random', 'fabric-01_2021']:
         sequence.transpose_(0, 1)
         sequence.transpose_(3, 4).transpose_(2, 3)
     else:
