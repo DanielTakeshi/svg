@@ -27,6 +27,7 @@ class FabricsData(Dataset):
     files, which are what we actually load.
 
     Update: we also support a second fabric data type.
+    Update (Jan 20): using different data for each type for 95-5 split.
     """
 
     def __init__(self, train, data_root, seq_len, image_size=56, n_channels=4, use_actions=True):
@@ -41,16 +42,20 @@ class FabricsData(Dataset):
         # We already made pickle files with `fabric_train_test.py`. Adjust if needed.
         if self.train:
             if tail == 'fabric-random':
-                path = join(data_root, 'pure_random_train_05602.pkl')
+                #path = join(data_root, 'pure_random_train_05602.pkl')  # 80-20
+                path = join(data_root, 'pure_random_train_06652.pkl')
             elif tail == 'fabric-01_2021':
-                path = join(data_root, '01-2021_train_07945.pkl')
+                #path = join(data_root, '01-2021_train_07945.pkl')  # 80-20
+                path = join(data_root, '01-2021_train_09435.pkl')
             else:
                 raise ValueError(tail)
         else:
             if tail == 'fabric-random':
-                path = join(data_root, 'pure_random_valid_01401.pkl')
+                #path = join(data_root, 'pure_random_valid_01401.pkl')  # 80-20
+                path = join(data_root, 'pure_random_valid_00351.pkl')
             elif tail == 'fabric-01_2021':
-                path = join(data_root, '01-2021_valid_01987.pkl')
+                #path = join(data_root, '01-2021_valid_01987.pkl')  # 80-20
+                path = join(data_root, '01-2021_valid_00497.pkl')
             else:
                 raise ValueError(tail)
 
