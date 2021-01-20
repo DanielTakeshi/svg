@@ -47,6 +47,12 @@ def plot_losses(args, directory):
     ax[0,0].plot(xs, loss_mse, lw=lw, label=label0)
     ax[0,1].plot(xs, loss_kld, lw=lw, label=label1)
 
+    # As of Jan 19 we also have validation.
+    if 'valid_mse_loss_rec' in data:
+        loss_mse_v = data['valid_mse_loss_rec']
+        label_v = f'Valid MSE; Min: {np.min(loss_mse):0.4f}'
+        ax[0,0].plot(xs, loss_mse_v, lw=lw, label=label_v)
+
     # Set appropriate y-axis range for MSE.
     eps = 0.0005
     min_y = 0.0 - eps
@@ -80,7 +86,7 @@ if __name__ == "__main__":
     # Note: actually path should be one level BEFORE the very long 'model=[...]' phrasing
     # otherwise it'd be a pain to type this in.
     pp = argparse.ArgumentParser()
-    pp.add_argument('--path', type=str, default='Path to stored file')
+    pp.add_argument('path', type=str, default='Path to stored file')
     args = pp.parse_args()
     assert os.path.exists(args.path), args.path
 

@@ -199,7 +199,7 @@ python train_svg_lp.py  --dataset fabric-01_2021  --g_dim 128  --z_dim 10  --bet
 To plot results for MSE and KL Divergence losses, run something like:
 
 ```
-python plot_svg.py --path /data/svg/logs/fabric-random/
+python plot_svg.py /data/svg/logs/fabric-random/
 ```
 
 It will iterate through the different models within the subdirectory (the
