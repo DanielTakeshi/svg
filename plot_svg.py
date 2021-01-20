@@ -50,7 +50,7 @@ def plot_losses(args, directory):
     # As of Jan 19 we also have validation.
     if 'valid_mse_loss_rec' in data:
         loss_mse_v = data['valid_mse_loss_rec']
-        label_v = f'Valid MSE; Min: {np.min(loss_mse):0.4f}'
+        label_v = f'Valid MSE; Min: {np.min(loss_mse_v):0.4f}'
         ax[0,0].plot(xs, loss_mse_v, lw=lw, label=label_v)
 
     # Set appropriate y-axis range for MSE.
