@@ -291,7 +291,7 @@ def plot(x, epoch, x_acts=None):
         x_in = x[0]
 
         # Daniel: as usual, iter `i` means x_{i-1} is most recently conditioned frame, SVG
-        # _samples_ z_i and x_i. I if it's before n_past, just use ground truth x_i for image.
+        # _samples_ z_i and x_i. If it's before n_past, just use ground truth x_i for image.
         for i in range(1, opt.n_eval):
             h = encoder(x_in)
             if opt.last_frame_skip or i <= opt.n_past:  # Daniel: see issue report on GitHub

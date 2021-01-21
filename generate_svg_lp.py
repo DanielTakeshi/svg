@@ -109,7 +109,7 @@ testing_batch_generator = get_testing_batch()
 # ------------------------------- eval funtions ------------------------------------ #
 
 def make_gifs(x, idx, name):
-    # get approx posterior sample
+    # get approx posterior sample  TODO(daniel) what is this for? `posterior_gen` isn't used?
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     posterior_gen = []
