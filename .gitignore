@@ -7,3 +7,5 @@ logs
 # Daniel
 *.swo
 *.swp
+*.png
+*.pkl
