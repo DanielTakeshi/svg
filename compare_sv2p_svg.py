@@ -94,25 +94,40 @@ def save_images():
     for ep in range(len(SV2P_01_fr)):
         if ep % 25 == 0:
             print(f'checking predictions on episode {ep}')
-        # Predictions have shape (N, HORIZON, 56, 56, 4), N is number of predictions.
+        # Predictions have shape (N, H=HORIZON, 56, 56, 4), N is number of predictions.
         gt_obs          = SV2P_01_fr[ep]['gt_obs']
-        gt_obs_bk       = SV2P_10_fr[ep]['gt_obs']
+        gt_obs_0        = SV2P_10_fr[ep]['gt_obs']
+        gt_context      = SV2P_01_fr[ep]['contexts']
+        gt_context_0    = SV2P_10_fr[ep]['contexts']
         gt_act          = SV2P_01_fr[ep]['act']
-        gt_act_bk       = SV2P_10_fr[ep]['act']
+        gt_act_0        = SV2P_10_fr[ep]['act']
         pred_sv2p_01_fr = SV2P_01_fr[ep]['pred']
         pred_sv2p_10_fr = SV2P_10_fr[ep]['pred']
-        assert gt_obs.shape == gt_obs_bk.shape
-        assert gt_act.shape == gt_act_bk.shape
+
+        # We load multiple versions partly as an extra sanity check.
+        assert gt_obs.shape == gt_obs_0.shape
+        assert gt_context.shape == gt_context_0.shape
+        assert gt_act.shape == gt_act_0.shape
+        assert np.allclose(gt_act, gt_act_0)
 
         # Actually cannot use len(gt_act), that's not the number of actions in an episode
+        # Oh, the N can be negative so if that's the case shape of gt_context is (0,)
         num_obs = len(gt_obs)
         N = num_obs - HORIZON
+        assert N <= gt_context.shape[0], f'{N} vs {gt_context.shape}'
 
         # New image for each episode? Actually maybe consider splitting depth vs color?
         # num_steps is number of actions but also need to add padding
         ws = 5                          # whitespace padding
         IM_WIDTH  = (num_obs) * 56 + (num_obs+1) * ws
-        IM_HEIGHT = 3*ws + (2*56)
+
+        # What do we want in the image? 2 rows for GT color and depth, then 2 for each
+        # prediction of SV2P (1 and 10 masks) on the RGB image? N = number of predictions.
+        # Then do 1 more row after that just to give empty breathing room to make sure we
+        # did this right ... (sanity checks)
+        nrows = 2 + (N * 2)
+        nrows = max(3, nrows)  # handle negative N
+        IM_HEIGHT = (nrows+1)*ws + (nrows*56)
         t_img = Image.new(mode='RGB', size=(IM_WIDTH,IM_HEIGHT), color=(255,255,255))
         draw = ImageDraw.Draw(t_img)
 
@@ -126,10 +141,44 @@ def save_images():
             t_img.paste(PIL.Image.fromarray(frame_rgb), (_w, _h)          )
             t_img.paste(PIL.Image.fromarray(frame_d),   (_w, _h + 56 + ws))
 
-        # Iterate through all predictions, adding them sequentially
-        for t in range(N):
-            sv2p_01 = pred_sv2p_01_fr[t,:,:,:,:]
-            sv2p_10 = pred_sv2p_10_fr[t,:,:,:,:]
+        # Iterate through all predictions, adding them sequentially. Update: actually
+        # we have to check to see if the episode has enough length at all. If an episode
+        # has under 5 actions then we could not do prediction on it.
+        row = 2
+        hoff = 0
+
+        for t in range(0, N):
+            sv2p_01 = pred_sv2p_01_fr[t,:,:,:,:]  # (H,56,56,4)
+            sv2p_10 = pred_sv2p_10_fr[t,:,:,:,:]  # (H,56,56,4)
+            context   = gt_context[t,:,:,:]
+            context_0 = gt_context_0[t,:,:,:]
+
+            # SV2P ONE MASK. Context, then predicted images.
+            img = PIL.Image.fromarray(context[:,:,:3])
+            _w = ws + hoff
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(sv2p_01[h, :, :, :3])
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # Next row, SV2P 10 MASK
+            row += 1
+            img = PIL.Image.fromarray(context_0[:,:,:3])
+            _w = ws + hoff
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(sv2p_10[h, :, :, :3])
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # Prep for next row in next for loop.
+            row += 1
+            hoff += (ws + 56)
 
         # Save in BGR format, which means saving with OpenCV.
         estr = str(ep).zfill(3)
