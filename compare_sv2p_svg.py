@@ -89,6 +89,8 @@ def save_images():
     BTW the ground truths should be the same among the different models, since we
     tested on the same data, so we can do another sanity check. Same for actions.
     All of these should be with context of 1, and predicting the next 5 frames.
+
+    BTW: to make a figure we can just take screenshots of appropriate segments?
     """
 
     for ep in range(len(SV2P_01_fr)):
@@ -124,10 +126,12 @@ def save_images():
         # What do we want in the image? 2 rows for GT color and depth, then 2 for each
         # prediction of SV2P (1 and 10 masks) on the RGB image? N = number of predictions.
         # Then do 1 more row after that just to give empty breathing room to make sure we
-        # did this right ... (sanity checks)
-        nrows = 2 + (N * 2)
+        # did this right ... (sanity checks). Update: adding 2 more for depth.
+        nrows = 2 + (N * 4)
         nrows = max(3, nrows)  # handle negative N
         IM_HEIGHT = (nrows+1)*ws + (nrows*56)
+
+        # Finally make this PIL Image.
         t_img = Image.new(mode='RGB', size=(IM_WIDTH,IM_HEIGHT), color=(255,255,255))
         draw = ImageDraw.Draw(t_img)
 
@@ -148,6 +152,8 @@ def save_images():
         hoff = 0
 
         for t in range(0, N):
+            # NOTE: for screenshotting here for figures, we can reorder these, so long
+            # as we check that the rows are being incremented appropriately.
             sv2p_01 = pred_sv2p_01_fr[t,:,:,:,:]  # (H,56,56,4)
             sv2p_10 = pred_sv2p_10_fr[t,:,:,:,:]  # (H,56,56,4)
             context   = gt_context[t,:,:,:]
@@ -172,6 +178,34 @@ def save_images():
             t_img.paste(img, (_w, _h))
             for h in range(HORIZON):
                 img = PIL.Image.fromarray(sv2p_10[h, :, :, :3])
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # SV2P ONE MASK, DEPTH.
+            row += 1
+            img = PIL.Image.fromarray(
+                    make_depth_img(context[:,:,3:]))
+            _w = ws + hoff
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(
+                        make_depth_img(sv2p_01[h, :, :, 3:]))
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # Next row, SV2P 10 MASK, DEPTH
+            row += 1
+            img = PIL.Image.fromarray(
+                    make_depth_img(context_0[:,:,3:]))
+            _w = ws + hoff
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(
+                        make_depth_img(sv2p_10[h, :, :, 3:]))
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 _h = (row+1)*ws + row*56
                 t_img.paste(img, (_w, _h))
