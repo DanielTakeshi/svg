@@ -78,12 +78,9 @@ def make_depth_img(img, cutoff=1000):
     return img
 
 
-def compute_ssim_metrics():
-    pass
-
-
-def save_images():
+def save_images_get_ssim():
     """Collect a bunch of images of ground truth sequences followed by predictions.
+    Also, might as well compute SSIM since everything is already nicely loaded.
 
     Ideally we can then paste these together for a figure.
     BTW the ground truths should be the same among the different models, since we
@@ -91,6 +88,7 @@ def save_images():
     All of these should be with context of 1, and predicting the next 5 frames.
 
     BTW: to make a figure we can just take screenshots of appropriate segments?
+    Might make it easier since I'm grouping everything anyway.
     """
 
     for ep in range(len(SV2P_01_fr)):
@@ -127,7 +125,7 @@ def save_images():
         # prediction of SV2P (1 and 10 masks) on the RGB image? N = number of predictions.
         # Then do 1 more row after that just to give empty breathing room to make sure we
         # did this right ... (sanity checks). Update: adding 2 more for depth.
-        nrows = 2 + (N * 4)
+        nrows = 2 + (N * 4) + 1
         nrows = max(3, nrows)  # handle negative N
         IM_HEIGHT = (nrows+1)*ws + (nrows*56)
 
@@ -224,5 +222,4 @@ def save_images():
 
 
 if __name__ == "__main__":
-    #compute_ssim_metrics()
-    save_images()
+    save_images_get_ssim()

@@ -42,20 +42,20 @@ class FabricsData(Dataset):
         # We already made pickle files with `fabric_train_test.py`. Adjust if needed.
         if self.train:
             if tail == 'fabric-random':
-                #path = join(data_root, 'pure_random_train_05602.pkl')  # 80-20
-                path = join(data_root, 'pure_random_train_06652.pkl')
+                path = join(data_root, 'pure_random_train_05602.pkl')  # 80-20
+                #path = join(data_root, 'pure_random_train_06652.pkl')
             elif tail == 'fabric-01_2021':
-                #path = join(data_root, '01-2021_train_07945.pkl')  # 80-20
-                path = join(data_root, '01-2021_train_09435.pkl')
+                path = join(data_root, '01-2021_train_07945.pkl')  # 80-20
+                #path = join(data_root, '01-2021_train_09435.pkl')
             else:
                 raise ValueError(tail)
         else:
             if tail == 'fabric-random':
-                #path = join(data_root, 'pure_random_valid_01401.pkl')  # 80-20
-                path = join(data_root, 'pure_random_valid_00351.pkl')
+                path = join(data_root, 'pure_random_valid_01401.pkl')  # 80-20
+                #path = join(data_root, 'pure_random_valid_00351.pkl')
             elif tail == 'fabric-01_2021':
-                #path = join(data_root, '01-2021_valid_01987.pkl')  # 80-20
-                path = join(data_root, '01-2021_valid_00497.pkl')
+                path = join(data_root, '01-2021_valid_01987.pkl')  # 80-20
+                #path = join(data_root, '01-2021_valid_00497.pkl')
             else:
                 raise ValueError(tail)
 

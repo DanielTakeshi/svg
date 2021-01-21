@@ -81,7 +81,7 @@ import pickle
 # Pick the data type and just run `python data/fabric_train_test.py`.
 TYPE = 'fabric-random'
 #TYPE = 'fabric-01_2021'
-FRAC_TRAIN = 0.95
+FRAC_TRAIN = 0.80
 
 # Note that the fabric-random data was saved with float32s.
 if TYPE == 'fabric-random':
