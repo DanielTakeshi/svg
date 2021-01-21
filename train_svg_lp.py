@@ -624,14 +624,17 @@ for epoch in range(opt.niter):
     print('[%02d] mse loss: %.5f [valid, rec]' % (epoch, valid_mse))
 
     # save the model
-    torch.save({
-        'encoder': encoder,
-        'decoder': decoder,
-        'frame_predictor': frame_predictor,
-        'posterior': posterior,
-        'prior': prior,
-        'opt': opt},
-        '%s/model.pth' % opt.log_dir)
+    if (epoch == opt.niter-1) or (epoch % 50 == 0):
+        tail = 'model_{}.pth'.format( str(epoch).zfill(4) )
+        model_path = os.path.join(opt.log_dir, tail)
+        torch.save({
+            'encoder': encoder,
+            'decoder': decoder,
+            'frame_predictor': frame_predictor,
+            'posterior': posterior,
+            'prior': prior,
+            'opt': opt},
+            model_path)
     if epoch % 10 == 0:
         print('log dir: %s' % opt.log_dir)
 

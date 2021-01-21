@@ -53,8 +53,8 @@ prior.eval()
 posterior.eval()
 encoder = tmp['encoder']
 decoder = tmp['decoder']
-encoder.train()  # TODO(daniel) why was this originally train mode? we're evaluating?
-decoder.train()  # TODO(daniel) why was this originally train mode? we're evaluating?
+encoder.eval()  # TODO(daniel) why was this originally train mode? we're evaluating?
+decoder.eval()  # TODO(daniel) why was this originally train mode? we're evaluating?
 frame_predictor.batch_size = opt.batch_size
 posterior.batch_size = opt.batch_size
 prior.batch_size = opt.batch_size
