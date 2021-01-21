@@ -34,7 +34,7 @@ import utils
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed',       default=1, type=int, help='manual seed')
-parser.add_argument('--batch_size', default=100, type=int, help='batch size')
+parser.add_argument('--batch_size', default=1, type=int, help='batch size, definitely easier with 1')
 parser.add_argument('--model_path', default='', help='path to model')
 parser.add_argument('--data_path',  default='', help='path to prediction data')
 parser.add_argument('--log_dir',    default='results_svg/', help='directory to save generations to')
@@ -52,8 +52,7 @@ torch.manual_seed(opt.seed)
 torch.cuda.manual_seed_all(opt.seed)
 dtype = torch.cuda.FloatTensor
 
-# ------------------------------ load the models  -------------------------------- #
-# Using the "non-recommended" way but seems to work in SpinningUp ...
+# Load models using the "non-recommended" way but seems to work in SpinningUp ...
 tmp = torch.load(opt.model_path)
 frame_predictor = tmp['frame_predictor']
 posterior = tmp['posterior']
@@ -72,7 +71,7 @@ opt.g_dim = tmp['opt'].g_dim
 opt.z_dim = tmp['opt'].z_dim
 opt.num_digits = tmp['opt'].num_digits
 
-# ------------------------------ transfer to gpu, set options ---------------------------------- #
+# Transfer to GPU, set options.
 frame_predictor.cuda()
 posterior.cuda()
 prior.cuda()
@@ -85,7 +84,6 @@ opt.channels = tmp['opt'].channels
 opt.image_width = tmp['opt'].image_width
 print(opt)
 
-# ------------------------------- eval funtions ------------------------------------ #
 
 def predict(x, x_acts, idx=None, name=None):
     """Daniel: making this a prediction method, like SV2P's prediction.
@@ -94,12 +92,24 @@ def predict(x, x_acts, idx=None, name=None):
     Daniel: as usual, iter `i` means x_{i-1} is most recently conditioned frame, SVG
     SAMPLES z_i and x_i. If it's before n_past, just use ground truth x_i for image.
     Code mirrors the train_svg_lp's `plot()` function.
+
+    Need to do some reshaping. Input `x` has shape (56,56,4) but want (1,4,56,56), so move
+    the channel to leading dimension, then add np.newaxis. Then convert to PyTorch. That
+    should be x_in; more generally we don't really need `x` to be a list since the context
+    frames should just be 1 -- check if that's not the case. See data/fabrics.py and the
+    utils.normalize_data for correct shapes.
     """
+    assert opt.n_past == 1
     gen_seq = []
     frame_predictor.hidden = frame_predictor.init_hidden()
     posterior.hidden = posterior.init_hidden()
     prior.hidden = prior.init_hidden()
-    x_in = x[0]
+
+    # Reshape single context frame. If we actually do more than 1 context frame, we should
+    # instead format `x` like we normally do during training by having it as a list, etc.
+    x_in = x.transpose(2,0,1)[np.newaxis,:]
+    x_in = np.array(x_in).astype(np.float32)
+    x_in = torch.from_numpy(x_in).cuda()
 
     for i in range(1, opt.n_eval):
         h = encoder(x_in)
@@ -108,9 +118,12 @@ def predict(x, x_acts, idx=None, name=None):
         else:
             h, _ = h
 
+        # Daniel: action conditioning. Updating h: (B,g_dim) --> (B, g_dim+4). B=1 here.
         # Given a_{i-1} we use that with Enc(prior_image) to get (predicted) x_i.
         if x_acts is not None:
-            x_a = x_acts[i-1].cuda()
+            x_a = (x_acts[i-1])[np.newaxis,:]
+            x_a = np.array(x_a).astype(np.float32)
+            x_a = torch.from_numpy(x_a).cuda()
             h = torch.cat([h, x_a], dim=1)  # overrides h
 
         h = h.detach()
@@ -127,11 +140,12 @@ def predict(x, x_acts, idx=None, name=None):
             x_in = decoder([h, skip]).detach()
             gen_seq.append(x_in.data.cpu().numpy())
 
-    prediction = np.array(gen_seq)
+    # Reshape it to match desired output for consistency with SV2P.
+    prediction = np.array(gen_seq)              # (n_future, 1, 4, 56, 56)
+    prediction = np.squeeze(prediction)         # (n_future, 4, 56, 56)
+    prediction = prediction.transpose(0,2,3,1)  # (n_future, 56, 56, 4)
     return prediction
 
-
-# ---------------------------------- main method ------------------------------------ #
 # ---------------------------------------------------------------------------------------------------- #
 # Daniel: the data should be loaded using something similar to:
 # https://github.com/ryanhoque/cloth-visual-mpc/blob/sv2p/vismpc/scripts/predict.py
@@ -141,7 +155,12 @@ def predict(x, x_acts, idx=None, name=None):
 # ---------------------------------------------------------------------------------------------------- #
 
 if __name__ == "__main__":
-    outname = (opt.data_path).replace('.pkl', '_PREDS_SV2P.pkl')
+    # Somewhat hacky and assumes a specific directory structure.
+    assert 'cloth-visual-mpc/logs/' in opt.data_path, opt.data_path
+    outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg/')
+    outname = (outname).replace('.pkl', '_PREDS_SVG-LP.pkl')
+
+    # Load, usually from the cloth-visual-mpc/logs directory.
     with open(opt.data_path, 'rb') as fh:
         pkl = pickle.load(fh)
     output = list()
@@ -152,11 +171,11 @@ if __name__ == "__main__":
         preds = []
         acts = []
         for i in range(num_steps + 1 - opt.n_future):
-            currim = episode['obs'][i]                  # shape (56, 56, 4), type uint8
-            curracts = all_acts[i:i + opt.n_future]     # shape (H, 4)
-            pred = predict(x=currim, x_acts=curracts)   # shape (H, 56, 56, 4)
-            preds.append(pred)                          # ALL preds: \hat{x}_{i+1 : i+H}
-            acts.append(curracts[0])                    # input actions: a_{i : i+H-1}
+            currim = episode['obs'][i]                 # shape (56, 56, 4), type uint8
+            curracts = all_acts[i:i + opt.n_future]    # shape (H, 4)
+            pred = predict(x=currim, x_acts=curracts)  # shape (H, 56, 56, 4)
+            preds.append(pred)                         # ALL preds: \hat{x}_{i+1 : i+H}
+            acts.append(curracts)                      # input actions: a_{i : i+H-1}
         # With my way of saving, shapes are (N, H, 56, 56, 4) and (N, H, 4)
         # where N=num_steps-H+1. (All predictions given this episode + horizon)
         gt_obs_all = np.array(episode['obs']).astype(np.uint8)
@@ -169,3 +188,4 @@ if __name__ == "__main__":
 
     with open(outname, 'wb') as fh:
         pickle.dump(output, fh)
+    print(f'Look for output: {outname}')
