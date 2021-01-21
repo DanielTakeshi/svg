@@ -206,6 +206,13 @@ It will iterate through the different models within the subdirectory (the
 directories with the very long names) and plot the MSE and KL divergence
 losses.
 
+For prediction, use something like:
+
+```
+python predict_svg_lp.py  --model_path  path_to_model/model.pth \
+        --data_path  path_to_data/data.pkl  --log_dir  path_for_new_images/
+```
+
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
