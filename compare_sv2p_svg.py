@@ -18,28 +18,28 @@ from collections import defaultdict
 from skimage.measure import compare_psnr as psnr_metric
 from skimage.measure import compare_ssim as ssim_metric
 import PIL
-from PIL import (Image, ImageDraw)
+from PIL import (Image, ImageDraw, ImageFont)
 HORIZON = 5
-RESULT_DIR = 'results'
 
 # ----------------------------------------------------------------------------- #
 # ------------------------------- DATA FILES ---------------------------------- #
 # ----------------------------------------------------------------------------- #
 HEAD_SV2P = '/home/seita/cloth-visual-mpc/logs/'
-TAIL_SV2P_01 = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SV2P_01_masks.pkl'
-TAIL_SV2P_10 = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SV2P_10_masks.pkl'
-
-HEAD_SVG = '/home/seita/svg/results_svg/'
-TAIL_SVG = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+HEAD_SVG  = '/home/seita/svg/results_svg/'
 
 # fr = fabric_random
-SV2P_01_fr_pth = join(HEAD_SV2P, TAIL_SV2P_01)
-SV2P_10_fr_pth = join(HEAD_SV2P, TAIL_SV2P_10)
-SVG_fr_pth     = join(HEAD_SVG, TAIL_SVG)
+TAIL_SV2P_01_fr = 'demos-fabric-random-epis_400_COMBINED_PREDS_SV2P_01.pkl'
+TAIL_SV2P_10_fr = 'demos-fabric-random-epis_400_COMBINED_PREDS_SV2P_10.pkl'
+TAIL_SVG_fr     = 'demos-fabric-random-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+SV2P_01_fr_pth  = join(HEAD_SV2P, TAIL_SV2P_01_fr)
+SV2P_10_fr_pth  = join(HEAD_SV2P, TAIL_SV2P_10_fr)
+SVG_fr_pth      = join(HEAD_SVG,  TAIL_SVG_fr)
 
 # fnew = fabric_01-2021 (new data)
-SV2P_10_fnew_pth = join(HEAD_SV2P, TAIL_SV2P_10)  #TODO(daniel) FIX :)
-SVG_fnew_pth     = join(HEAD_SVG, TAIL_SVG)       #TODO(daniel) FIX :)
+TAIL_SV2P_10_fnew = 'demos-fabric-01-2021-epis_400_COMBINED_PREDS_SV2P_10.pkl'
+TAIL_SVG_fnew     = 'demos-fabric-01-2021-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+SV2P_10_fnew_pth  = join(HEAD_SV2P, TAIL_SV2P_10_fnew)
+SVG_fnew_pth      = join(HEAD_SVG,  TAIL_SVG_fnew)
 
 # These are _lists_, one dict per episode.
 with open(SV2P_01_fr_pth, 'rb') as fh:
@@ -49,21 +49,16 @@ with open(SV2P_10_fr_pth, 'rb') as fh:
 with open(SVG_fr_pth, 'rb') as fh:
     SVG_fr = pickle.load(fh)
 
-# Now for the 'two tone' data, or 'fnew' to give it a clearer name. Only trained on the 10 mask case.
+# fnew data
 with open(SV2P_10_fnew_pth, 'rb') as fh:
     SV2P_10_fnew = pickle.load(fh)
 with open(SVG_fnew_pth, 'rb') as fh:
     SVG_fnew = pickle.load(fh)
 
 assert len(SV2P_01_fr) == len(SV2P_10_fr) == len(SVG_fr) == len(SV2P_10_fnew) == len(SVG_fnew)
-
-# TODO(daniel)
-HEAD = '/home/seita/svg/logs/'
-PRED_SVG = 'TODO'
 # ----------------------------------------------------------------------------- #
 # ------------------------------- DATA FILES ---------------------------------- #
 # ----------------------------------------------------------------------------- #
-
 
 def depth_to_3ch(img, cutoff):
     """Useful to turn the background into black into the depth images.
@@ -95,19 +90,22 @@ def make_depth_img(img, cutoff=1000):
     return img
 
 
-def draw_ssim(draw, IM_WIDTH, ws, hoff):
+def draw_ssim(draw, IM_WIDTH, ws, hoff, groupname):
     # Draw some structural similarity values as a sanity check.
+    fontsize = 10
     ssim_width = IM_WIDTH - (ws + 56)  # Make this LAST column
     text_0 = 'ssim_0'
     text_1 = 'ssim_1'
     text_2 = 'ssim_2'
     text_3 = 'ssim_3'
-    text_4 = 'ssim_3'
-    draw.text((ssim_width, hoff),    text_0, fill=(0,0,0,0))
-    draw.text((ssim_width, hoff+10), text_1, fill=(0,0,0,0))
-    draw.text((ssim_width, hoff+20), text_2, fill=(0,0,0,0))
-    draw.text((ssim_width, hoff+30), text_3, fill=(0,0,0,0))
-    draw.text((ssim_width, hoff+40), text_4, fill=(0,0,0,0))
+    text_4 = 'ssim_4'
+    off = 9
+    draw.text((ssim_width, hoff+0*off), groupname, fill=(0,0,0,0))
+    draw.text((ssim_width, hoff+1*off), text_0, fill=(0,0,0,0))
+    draw.text((ssim_width, hoff+2*off), text_1, fill=(0,0,0,0))
+    draw.text((ssim_width, hoff+3*off), text_2, fill=(0,0,0,0))
+    draw.text((ssim_width, hoff+4*off), text_3, fill=(0,0,0,0))
+    draw.text((ssim_width, hoff+5*off), text_4, fill=(0,0,0,0))
 
 
 def save_images_get_ssim(datatype):
@@ -239,7 +237,7 @@ def save_images_get_ssim(datatype):
                     img = PIL.Image.fromarray(sv2p_01[h, :, :, :3])
                     _w = (h+2)*ws + (h+1)*56 + hoff
                     t_img.paste(img, (_w, _h))
-                draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01')
                 row += 1
 
             # Next row, SV2P 10 MASK (Edit: putting row += 1 up earlier)
@@ -250,7 +248,7 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray(sv2p_10[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10')
 
             # Next row, SVG
             row += 1
@@ -261,7 +259,7 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray(svg[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG')
 
             # SV2P ONE MASK, DEPTH.
             if datatype == 'fabric-random':
@@ -273,7 +271,7 @@ def save_images_get_ssim(datatype):
                     img = PIL.Image.fromarray( make_depth_img(sv2p_01[h, :, :, 3:]) )
                     _w = (h+2)*ws + (h+1)*56 + hoff
                     t_img.paste(img, (_w, _h))
-                draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01')
 
             # Next row, SV2P 10 MASK, DEPTH
             row += 1
@@ -284,7 +282,7 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray( make_depth_img(sv2p_10[h, :, :, 3:]) )
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10')
 
             # Next row, SVG, DEPTH
             row += 1
@@ -295,7 +293,7 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray( make_depth_img(svg[h, :, :, 3:]) )
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h)
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG')
 
             # Prep for next row in next for loop.
             row += 1
@@ -305,8 +303,11 @@ def save_images_get_ssim(datatype):
         estr = str(ep).zfill(3)
         sstr = str(num_obs).zfill(2)
         img_path = f'preds_{datatype}_ep_{estr}_obs_{sstr}_rgbd.png'
-        img_path = join(RESULT_DIR, img_path)
-        #t_img.save(img_path)  # RGB, but we want BGR
+        if datatype == 'fabric-random':
+            img_path = join('results_fr', img_path)
+        else:
+            img_path = join('results_fnew', img_path)
+        #t_img.save(img_path)  # RGB, but we want BGR, hence do these two:
         t_img_np = np.array(t_img)
         cv2.imwrite(img_path, t_img_np)
 

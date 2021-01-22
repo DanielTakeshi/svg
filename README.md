@@ -246,8 +246,8 @@ python predict_svg_lp.py \
     --data_path=../cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl
 ```
 
-Look at `results_svg/` for the pickle file output, then `results/` for the
-IMAGES formed after running `compare_sv2p_svg.py`.
+Look at `results_svg/` for the pickle file output, then other results
+directories for the IMAGES formed after running `compare_sv2p_svg.py`.
 
 
 [1]:https://github.com/edenton/svg/pull/6
