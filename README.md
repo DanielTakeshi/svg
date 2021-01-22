@@ -51,6 +51,7 @@ python train_svg_fp.py --dataset kth --image_width  64 --model vgg --g_dim 128 -
 - [Stochastic Moving MNIST](#sm-mnist)
 - [BAIR Robot Push Data](#bair-data)
 - [Fabrics Data](#fabrics-data)
+- [Evaluation](#evaluation)
 
 ## Installation
 
@@ -206,11 +207,43 @@ It will iterate through the different models within the subdirectory (the
 directories with the very long names) and plot the MSE and KL divergence
 losses.
 
-For prediction, use something like:
+
+# Evaluation
+
+For SV2P (in other repository) test with these commands inside docker [on this
+commit][5]:
 
 ```
-python predict_svg_lp.py  --model_path  path_to_model/model.pth \
-        --data_path  path_to_data/data.pkl  --log_dir  path_for_new_images/
+CUDA_VISIBLE_DEVICES=0 python vismpc/scripts/predict.py \
+    --input_img=/data/cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl \
+    --model_dir=/data/pure_random/sv2p_output \
+    --data_dir=/data/pure_random/sv2p_data \
+    --horizon=5  --batch
+
+CUDA_VISIBLE_DEVICES=0 python vismpc/scripts/predict.py \
+    --input_img=/data/cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl \
+    --model_dir=/data/pure_random/sv2p_output_1mask \
+    --data_dir=/data/pure_random/sv2p_data_1mask \
+    --horizon=5  --batch
+
+CUDA_VISIBLE_DEVICES=0 python vismpc/scripts/predict.py \
+    --input_img=/data/cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl \
+    --model_dir=/data/01_2021_backup/sv2p_model_cloth \
+    --data_dir=/data/01_2021_backup/sv2p_data_cloth \
+    --horizon=5  --batch
+```
+
+For SVG, assuming `cloth-visual-mpc` is where all the data are stored, use
+(models TBD):
+
+```
+python predict_svg_lp.py \
+    --model_path=[...]/model.pth \
+    --data_path=../cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl
+
+python predict_svg_lp.py \
+    --model_path=[...]/model.pth \
+    --data_path=../cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl
 ```
 
 
@@ -218,3 +251,4 @@ python predict_svg_lp.py  --model_path  path_to_model/model.pth \
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
 [3]:https://pytorch.org/get-started/previous-versions/
 [4]:https://github.com/edenton/svg/issues/10
+[5]:https://github.com/ryanhoque/cloth-visual-mpc/commit/d17e30e7edaa9409c5317a86cb9fb263674b0f65
