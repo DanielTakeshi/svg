@@ -407,7 +407,7 @@ def save_images_get_ssim(datatype):
         cv2.imwrite(img_path, t_img_np)
 
     # Report SSIM metrics
-    print('\nSome SSIM metrics for data type: {datatype}:\n')
+    print(f'\nSome SSIM metrics for data type: {datatype}:\n')
     print('Length of lists: {} <= episodes {}'.format(len(SSIM_C['sv2p_10']), nb_eps))
 
     if datatype == 'fabric-random':
@@ -427,5 +427,5 @@ def save_images_get_ssim(datatype):
 
 
 if __name__ == "__main__":
-    #save_images_get_ssim(datatype='fabric-random')
-    save_images_get_ssim(datatype='fabric-01-2021')
+    save_images_get_ssim(datatype='fabric-random')
+    #save_images_get_ssim(datatype='fabric-01-2021')
