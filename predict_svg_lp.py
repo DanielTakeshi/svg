@@ -85,7 +85,7 @@ opt.image_width = tmp['opt'].image_width
 print(opt)
 
 
-def predict(x, x_acts, idx=None, name=None):
+def predict(x, x_acts):
     """Daniel: making this a prediction method, like SV2P's prediction.
 
     Since n_past=1, we definitely need `i <= opt.n_past` to get ANY skip connection.
@@ -191,7 +191,7 @@ if __name__ == "__main__":
                        'gt_obs': gt_obs_all,
                        'contexts': contexts_all}
         output.append(curr_output)
-        if len(output) % 10 == 0:
+        if len(output) % 20 == 0:
             print('finished {} episodes ...'.format(len(output)))
 
     with open(outname, 'wb') as fh:

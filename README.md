@@ -238,13 +238,16 @@ For SVG, assuming `cloth-visual-mpc` is where all the data are stored, use
 
 ```
 python predict_svg_lp.py \
-    --model_path=[...]/model.pth \
+    --model_path=/data/svg/logs-20-Jan-SVG-LP-Mason/fabric-random/model\=dcgan56x56-rnn_size\=256-predictor-posterior-prior-rnn_layers\=2-1-1-n_past\=3-n_future\=7-lr\=0.0020-g_dim\=128-z_dim\=10-last_frame_skip\=False-beta\=0.0001000-act-cond-1/model.pth \
     --data_path=../cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl
 
 python predict_svg_lp.py \
-    --model_path=[...]/model.pth \
+    --model_path=/data/svg/logs-20-Jan-SVG-LP-Mason/fabric-01_2021/model\=dcgan56x56-rnn_size\=256-predictor-posterior-prior-rnn_layers\=2-1-1-n_past\=2-n_future\=5-lr\=0.0020-g_dim\=128-z_dim\=10-last_frame_skip\=False-beta\=0.0001000-act-cond-1/model.pth \
     --data_path=../cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl
 ```
+
+Look at `results_svg/` for the pickle file output, then `results/` for the
+IMAGES formed after running `compare_sv2p_svg.py`.
 
 
 [1]:https://github.com/edenton/svg/pull/6
