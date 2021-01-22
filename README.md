@@ -1,51 +1,4 @@
-# Stochastic Video Generation with a Learned Prior
-
-This is code for the paper [Stochastic Video Generation with a Learned Prior](https://arxiv.org/abs/1802.07687) by Emily Denton and Rob Fergus. See the [project page](https://sites.google.com/view/svglp/) for details and generated video sequences.
-
-##  Training on Stochastic Moving MNIST (SM-MNIST)
-To train the SVG-LP model on the 2 digit SM-MNIST dataset run:
-```
-python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 --beta 0.0001 --data_root /path/to/data/ --log_dir /logs/will/be/saved/here/
-```
-If the MNIST dataset doesn't exist, it will be downloaded to the specified path.
-
-## BAIR robot push dataset
-To download the BAIR robot push dataset run:
-```
-sh data/download_bair.sh /path/to/data/
-```
-This will download the dataset in tfrecord format into the specified directory. To train the pytorch models, we need to first convert the tfrecord data into .png images by running:
-```
-python data/convert_bair.py --data_dir /path/to/data/
-```
-This may take some time. Images will be saved in ```/path/to/data/processeddata```.
-Now we can train the SVG-LP model by running:
-```
-python train_svg_lp.py --dataset bair --model vgg --g_dim 128 --z_dim 64 --beta 0.0001 --n_past 2 --n_future 10 --channels 3 --data_root /path/to/data/ --log_dir /logs/will/be/saved/here/
-```
-
-To generate images with a pretrained SVG-LP model run:
-```
-python generate_svg_lp.py --model_path pretrained_models/svglp_bair.pth --log_dir /generated/images/will/save/here/
-```
-
-
-## KTH action dataset
-First download the KTH action recognition dataset by running:
-```
-sh data/download_kth.sh /my/kth/data/path/
-```
-where /my/kth/data/path/ is the directory the data will be downloaded into. Next, convert the downloaded .avi files into .png's for the data loader. To do this you'll want [ffmpeg](https://ffmpeg.org/) installed. The following script will do the conversion, but beware, it's written in lua (sorry!):
-```
-th data/convert_kth.lua --dataRoot /my/kth/data/path/ --imageSize 64
-```
-The ```--imageSize``` flag specifiec the image resolution. Experimental results in the paper used 128x128, but you can also train a model on 64x64 and it will train much faster.
-To train the SVG-FP model on 64x64 KTH videos run:
-```
-python train_svg_fp.py --dataset kth --image_width  64 --model vgg --g_dim 128 --z_dim 24 --beta 0.000001 --n_past 10 --n_future 10 --channels 1 --lr 0.0008 --data_root /path/to/data/ --log_dir /logs/will/be/saved/here/
-```
-
-# Daniel's Documentation [START HERE]
+# Daniel's Documentation for Stochastic Video Generation
 
 - [Installation](#installation)
 - [Stochastic Moving MNIST](#sm-mnist)
@@ -55,17 +8,12 @@ python train_svg_fp.py --dataset kth --image_width  64 --model vgg --g_dim 128 -
 
 ## Installation
 
-The original repository doesn't give information about how to install, so
-here's what I had to do, plus a few other comments:
-
-- Mostly follow [this issue report][4] to match versions. For example, we need
-  [an older scikit-image version][2] to get image metrics to work.
-- I followed [this pull request][1] to use pytorch=1.0.0 (and presumably
-  torchvision==0.2.1 [since that's the matching version according to the
-  PyTorch website][3]).
-- TensorFlow is only used for some transformations, and not for training.
-
-I put this information into conda .yml files to install:
+The original repository doesn't give information about how to install, so I
+mostly followed [this report][4]. For example, we need [an older scikit-image
+version][2] to get image metrics to work. I followed [this pull request][1] to
+use pytorch=1.0.0 (and presumably torchvision==0.2.1 [since that's the matching
+version according to the PyTorch website][3]). All this should be in the conda
+`.yml` files to install:
 
 ```
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -75,12 +23,7 @@ conda activate svg
 ```
 
 Then, create the directory `/data/svg/` which should enable us to run scripts.
-
-If something wrong happens, just restart. :)
-
-```
-conda env remove -n svg
-```
+If something wrong happens, just restart: `conda env remove -n svg`.
 
 ## SM-MNIST
 
@@ -94,9 +37,8 @@ python train_svg_lp.py --dataset smmnist --num_digits 2 --g_dim 128 --z_dim 10 -
 
 Note:
 
-- The paper tests with 1 or 2 moving digits (though I only see 2). Train models
-  to condition on 5 frames (`--n_past`) and predict the next 10 frames
-  (`--n_future`). *Evaluation* uses 30 frames (`n_eval`).
+- The paper trains models to condition on 5 frames (`--n_past`) and predict the
+  next 10 frames (`--n_future`). *Evaluation* uses up to 30 frames (`n_eval`).
 - Uses a DCGAN model architecture for the *frame encoder*, the default for `--model`.
 - `|g|=128`, size of encoder output (so we go from image --> vector of this
   size), and decoder input (vector of this size --> image)
@@ -107,8 +49,7 @@ Note:
   optimizer's momentum.
 - For this and other datasets, LSTMs use 256 cells in each layer.
 - Defaults to 300 epochs, with 600 batches per epoch, batch size is 100, which
-  sums to 60K items per epoch. Seems logical but I asusme there's a train/test
-  split.
+  sums to 60K items per epoch, seems logical. There is also a train/test split.
 - Add `--channels 3` to replicate the input across channels and check if the
   network architecture is compatible. Similarly, can adjust `--image_width`.
 

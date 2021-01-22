@@ -24,6 +24,7 @@ from skimage.measure import compare_psnr as psnr_metric
 from skimage.measure import compare_ssim as ssim_metric
 import PIL
 from PIL import (Image, ImageDraw, ImageFont)
+np.set_printoptions(precision=3)
 HORIZON = 5
 
 # ----------------------------------------------------------------------------- #
@@ -427,5 +428,5 @@ def save_images_get_ssim(datatype):
 
 
 if __name__ == "__main__":
-    save_images_get_ssim(datatype='fabric-random')
-    #save_images_get_ssim(datatype='fabric-01-2021')
+    #save_images_get_ssim(datatype='fabric-random')
+    save_images_get_ssim(datatype='fabric-01-2021')
