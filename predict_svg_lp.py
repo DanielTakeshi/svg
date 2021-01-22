@@ -98,6 +98,8 @@ def predict(x, x_acts, idx=None, name=None):
     should be x_in; more generally we don't really need `x` to be a list since the context
     frames should just be 1 -- check if that's not the case. See data/fabrics.py and the
     utils.normalize_data for correct shapes.
+
+    AH! Just remembered that we have to get the range into [0,1].
     """
     assert opt.n_past == 1
     gen_seq = []
@@ -108,7 +110,7 @@ def predict(x, x_acts, idx=None, name=None):
     # Reshape single context frame. If we actually do more than 1 context frame, we should
     # instead format `x` like we normally do during training by having it as a list, etc.
     x_in = x.transpose(2,0,1)[np.newaxis,:]
-    x_in = np.array(x_in).astype(np.float32)
+    x_in = np.array(x_in).astype(np.float32) / 255.0     # Only major processing was div by 255.
     x_in = torch.from_numpy(x_in).cuda()
 
     for i in range(1, opt.n_eval):
@@ -170,18 +172,24 @@ if __name__ == "__main__":
         all_acts = np.array(episode['act'])
         preds = []
         acts = []
+        contexts = []
         for i in range(num_steps + 1 - opt.n_future):
             currim = episode['obs'][i]                 # shape (56, 56, 4), type uint8
             curracts = all_acts[i:i + opt.n_future]    # shape (H, 4)
-            pred = predict(x=currim, x_acts=curracts)  # shape (H, 56, 56, 4)
+            pred = predict(x=currim, x_acts=curracts)  # shape (H, 56, 56, 4), float32, in (0,1)
             preds.append(pred)                         # ALL preds: \hat{x}_{i+1 : i+H}
             acts.append(curracts)                      # input actions: a_{i : i+H-1}
+            contexts.append(currim)
         # With my way of saving, shapes are (N, H, 56, 56, 4) and (N, H, 4)
         # where N=num_steps-H+1. (All predictions given this episode + horizon)
         gt_obs_all = np.array(episode['obs']).astype(np.uint8)
-        curr_output = {'pred': np.array(preds).astype(np.uint8),
+        contexts_all = np.array(contexts).astype(np.uint8)
+        preds_all = np.array(preds) * 255.0     # NOTE: multiply by 255 since output is all in (0,1).
+        preds_all = preds_all.astype(np.uint8)
+        curr_output = {'pred': preds_all,
                        'act': np.array(acts),
-                       'gt_obs': gt_obs_all}
+                       'gt_obs': gt_obs_all,
+                       'contexts': contexts_all}
         output.append(curr_output)
         if len(output) % 10 == 0:
             print('finished {} episodes ...'.format(len(output)))

@@ -25,20 +25,26 @@ RESULT_DIR = 'results'
 # ----------------------------------------------------------------------------- #
 # ------------------------------- DATA FILES ---------------------------------- #
 # ----------------------------------------------------------------------------- #
-HEAD = '/home/seita/cloth-visual-mpc/logs/'
+HEAD_SV2P = '/home/seita/cloth-visual-mpc/logs/'
 TAIL_SV2P_01 = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SV2P_01_masks.pkl'
 TAIL_SV2P_10 = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SV2P_10_masks.pkl'
 
+HEAD_SVG = '/home/seita/svg/results_svg/'
+TAIL_SVG = 'demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+
 # fr = fabric_random
-SV2P_01_fr_pth = join(HEAD, TAIL_SV2P_01)
-SV2P_10_fr_pth = join(HEAD, TAIL_SV2P_10)
+SV2P_01_fr_pth = join(HEAD_SV2P, TAIL_SV2P_01)
+SV2P_10_fr_pth = join(HEAD_SV2P, TAIL_SV2P_10)
+SVG_fr_pth     = join(HEAD_SVG, TAIL_SVG)
 
 # These are _lists_, one dict per episode.
 with open(SV2P_01_fr_pth, 'rb') as fh:
     SV2P_01_fr = pickle.load(fh)
 with open(SV2P_10_fr_pth, 'rb') as fh:
     SV2P_10_fr = pickle.load(fh)
-assert len(SV2P_01_fr) == len(SV2P_10_fr)
+with open(SVG_fr_pth, 'rb') as fh:
+    SVG_fr = pickle.load(fh)
+assert len(SV2P_01_fr) == len(SV2P_10_fr) == len(SVG_fr)
 
 # TODO(daniel)
 HEAD = '/home/seita/svg/logs/'
@@ -78,7 +84,7 @@ def make_depth_img(img, cutoff=1000):
     return img
 
 
-def save_images_get_ssim():
+def save_images_get_ssim(datatype):
     """Collect a bunch of images of ground truth sequences followed by predictions.
     Also, might as well compute SSIM since everything is already nicely loaded.
 
@@ -90,6 +96,7 @@ def save_images_get_ssim():
     BTW: to make a figure we can just take screenshots of appropriate segments?
     Might make it easier since I'm grouping everything anyway.
     """
+    assert datatype in ['fabric-random', 'fabric-01-2021'], datatype
 
     for ep in range(len(SV2P_01_fr)):
         if ep % 25 == 0:
@@ -97,18 +104,23 @@ def save_images_get_ssim():
         # Predictions have shape (N, H=HORIZON, 56, 56, 4), N is number of predictions.
         gt_obs          = SV2P_01_fr[ep]['gt_obs']
         gt_obs_0        = SV2P_10_fr[ep]['gt_obs']
+        gt_obs_1        = SVG_fr[ep]['gt_obs']
         gt_context      = SV2P_01_fr[ep]['contexts']
         gt_context_0    = SV2P_10_fr[ep]['contexts']
+        gt_context_1    = SVG_fr[ep]['contexts']
         gt_act          = SV2P_01_fr[ep]['act']
         gt_act_0        = SV2P_10_fr[ep]['act']
+        gt_act_1        = SVG_fr[ep]['act']
         pred_sv2p_01_fr = SV2P_01_fr[ep]['pred']
         pred_sv2p_10_fr = SV2P_10_fr[ep]['pred']
+        pred_svg_fr     = SVG_fr[ep]['pred']
 
         # We load multiple versions partly as an extra sanity check.
-        assert gt_obs.shape == gt_obs_0.shape
-        assert gt_context.shape == gt_context_0.shape
-        assert gt_act.shape == gt_act_0.shape
+        assert gt_obs.shape == gt_obs_0.shape == gt_obs_1.shape
+        assert gt_context.shape == gt_context_0.shape == gt_context_1.shape
+        assert gt_act.shape == gt_act_0.shape == gt_act_1.shape
         assert np.allclose(gt_act, gt_act_0)
+        assert np.allclose(gt_act, gt_act_1)
 
         # Actually cannot use len(gt_act), that's not the number of actions in an episode
         # Oh, the N can be negative so if that's the case shape of gt_context is (0,)
@@ -124,8 +136,9 @@ def save_images_get_ssim():
         # What do we want in the image? 2 rows for GT color and depth, then 2 for each
         # prediction of SV2P (1 and 10 masks) on the RGB image? N = number of predictions.
         # Then do 1 more row after that just to give empty breathing room to make sure we
-        # did this right ... (sanity checks). Update: adding 2 more for depth.
-        nrows = 2 + (N * 4) + 1
+        # did this right ... (sanity checks). Update: adding 2 more for depth, and we also
+        # have to add the SVG predictions!.
+        nrows = 2 + (N * 6) + 1
         nrows = max(3, nrows)  # handle negative N
         IM_HEIGHT = (nrows+1)*ws + (nrows*56)
 
@@ -152,16 +165,20 @@ def save_images_get_ssim():
         for t in range(0, N):
             # NOTE: for screenshotting here for figures, we can reorder these, so long
             # as we check that the rows are being incremented appropriately.
-            sv2p_01 = pred_sv2p_01_fr[t,:,:,:,:]  # (H,56,56,4)
-            sv2p_10 = pred_sv2p_10_fr[t,:,:,:,:]  # (H,56,56,4)
+            sv2p_01   = pred_sv2p_01_fr[t,:,:,:,:]  # (H,56,56,4)
+            sv2p_10   = pred_sv2p_10_fr[t,:,:,:,:]  # (H,56,56,4)
+            svg       = pred_svg_fr[t,:,:,:,:]      # (H,56,56,4)
             context   = gt_context[t,:,:,:]
             context_0 = gt_context_0[t,:,:,:]
+            context_1 = gt_context_1[t,:,:,:]
+
+            # Starting width for everything in this group
+            _w_start = ws + hoff
 
             # SV2P ONE MASK. Context, then predicted images.
             img = PIL.Image.fromarray(context[:,:,:3])
-            _w = ws + hoff
             _h = (row+1)*ws + row*56
-            t_img.paste(img, (_w, _h))
+            t_img.paste(img, (_w_start, _h))
             for h in range(HORIZON):
                 img = PIL.Image.fromarray(sv2p_01[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
@@ -171,11 +188,21 @@ def save_images_get_ssim():
             # Next row, SV2P 10 MASK
             row += 1
             img = PIL.Image.fromarray(context_0[:,:,:3])
-            _w = ws + hoff
             _h = (row+1)*ws + row*56
-            t_img.paste(img, (_w, _h))
+            t_img.paste(img, (_w_start, _h))
             for h in range(HORIZON):
                 img = PIL.Image.fromarray(sv2p_10[h, :, :, :3])
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # Next row, SVG
+            row += 1
+            img = PIL.Image.fromarray(context_1[:,:,:3])
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w_start, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(svg[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 _h = (row+1)*ws + row*56
                 t_img.paste(img, (_w, _h))
@@ -184,9 +211,8 @@ def save_images_get_ssim():
             row += 1
             img = PIL.Image.fromarray(
                     make_depth_img(context[:,:,3:]))
-            _w = ws + hoff
             _h = (row+1)*ws + row*56
-            t_img.paste(img, (_w, _h))
+            t_img.paste(img, (_w_start, _h))
             for h in range(HORIZON):
                 img = PIL.Image.fromarray(
                         make_depth_img(sv2p_01[h, :, :, 3:]))
@@ -198,12 +224,24 @@ def save_images_get_ssim():
             row += 1
             img = PIL.Image.fromarray(
                     make_depth_img(context_0[:,:,3:]))
-            _w = ws + hoff
             _h = (row+1)*ws + row*56
-            t_img.paste(img, (_w, _h))
+            t_img.paste(img, (_w_start, _h))
             for h in range(HORIZON):
                 img = PIL.Image.fromarray(
                         make_depth_img(sv2p_10[h, :, :, 3:]))
+                _w = (h+2)*ws + (h+1)*56 + hoff
+                _h = (row+1)*ws + row*56
+                t_img.paste(img, (_w, _h))
+
+            # Next row, SVG, DEPTH
+            row += 1
+            img = PIL.Image.fromarray(
+                    make_depth_img(context_1[:,:,3:]))
+            _h = (row+1)*ws + row*56
+            t_img.paste(img, (_w_start, _h))
+            for h in range(HORIZON):
+                img = PIL.Image.fromarray(
+                        make_depth_img(svg[h, :, :, 3:]))
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 _h = (row+1)*ws + row*56
                 t_img.paste(img, (_w, _h))
@@ -215,11 +253,12 @@ def save_images_get_ssim():
         # Save in BGR format, which means saving with OpenCV.
         estr = str(ep).zfill(3)
         sstr = str(num_obs).zfill(2)
-        img_path = f'preds_ep_{estr}_obs_{sstr}_rgbd.png'
+        img_path = f'preds_{datatype}_ep_{estr}_obs_{sstr}_rgbd.png'
         img_path = join(RESULT_DIR, img_path)
         t_img_np = np.array(t_img)
         cv2.imwrite(img_path, t_img_np)
 
 
 if __name__ == "__main__":
-    save_images_get_ssim()
+    save_images_get_ssim(datatype='fabric-random')
+    #save_images_get_ssim(datatype='fabric-01-2021')
