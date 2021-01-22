@@ -4,6 +4,11 @@ will be in a standard pickle file that we can load anywhere.]
 
 For SV2P prediction format, see:
 https://github.com/ryanhoque/cloth-visual-mpc/blob/sv2p/vismpc/scripts/predict.py
+
+NOTE:
+https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
+we are using the older way of doing ssim_metric, so I don't know if documentation is up to date.
+Probably easier to do each channel separately, then average, as Dr. Denton does it.
 """
 import os
 import cv2
@@ -90,15 +95,15 @@ def make_depth_img(img, cutoff=1000):
     return img
 
 
-def draw_ssim(draw, IM_WIDTH, ws, hoff, groupname):
+def draw_ssim(draw, IM_WIDTH, ws, hoff, groupname, ssims):
     # Draw some structural similarity values as a sanity check.
     fontsize = 10
     ssim_width = IM_WIDTH - (ws + 56)  # Make this LAST column
-    text_0 = 'ssim_0'
-    text_1 = 'ssim_1'
-    text_2 = 'ssim_2'
-    text_3 = 'ssim_3'
-    text_4 = 'ssim_4'
+    text_0 = f'ssim {ssims[0]:0.2f}'
+    text_1 = f'ssim {ssims[1]:0.2f}'
+    text_2 = f'ssim {ssims[2]:0.2f}'
+    text_3 = f'ssim {ssims[3]:0.2f}'
+    text_4 = f'ssim {ssims[4]:0.2f}'
     off = 9
     draw.text((ssim_width, hoff+0*off), groupname, fill=(0,0,0,0))
     draw.text((ssim_width, hoff+1*off), text_0, fill=(0,0,0,0))
@@ -106,6 +111,36 @@ def draw_ssim(draw, IM_WIDTH, ws, hoff, groupname):
     draw.text((ssim_width, hoff+3*off), text_2, fill=(0,0,0,0))
     draw.text((ssim_width, hoff+4*off), text_3, fill=(0,0,0,0))
     draw.text((ssim_width, hoff+5*off), text_4, fill=(0,0,0,0))
+
+
+def eval_ssim(true_imgs, pred_imgs, channel='both'):
+    # By default, sum SSIMs across all channels, and average.
+    assert channel in ['color', 'depth', 'both'], channel
+    assert true_imgs.shape == pred_imgs.shape == (HORIZON, 56, 56, 4), true_imgs.shape
+    if channel == 'both':
+        start, end = 0, 4
+    elif channel == 'color':
+        start, end = 0, 3
+    elif channel == 'depth':
+        start, end = 3, 4
+
+    ssims = []
+    for t in range(HORIZON):
+        true_img = true_imgs[t]
+        pred_img = pred_imgs[t]
+        ssim = 0
+        for c in range(start, end):
+            X = true_img[:,:,c]
+            Y = pred_img[:,:,c]
+            if channel == 'depth':
+                # Makes it 3 channel, but we only want the 1st (it's replicated).
+                X = (make_depth_img(X))[:,:,0]
+                Y = (make_depth_img(Y))[:,:,0]
+            ssim += ssim_metric(X=X, Y=Y)
+        ssim /= (end-start)
+        assert -1 <= ssim <= 1, ssim
+        ssims.append(ssim)
+    return ssims
 
 
 def save_images_get_ssim(datatype):
@@ -121,8 +156,19 @@ def save_images_get_ssim(datatype):
     Might make it easier since I'm grouping everything anyway.
     """
     assert datatype in ['fabric-random', 'fabric-01-2021'], datatype
+    nb_eps = len(SV2P_10_fr)
 
-    for ep in range(len(SV2P_01_fr)):
+    # SSIM: dict, maps model type (e.g., 'svg') --> ssim matrix of dim (num_eps, HORIZON)
+    # We can then average across columns to get SSIM for 1-ahead predictions, 2-ahead, etc.
+    # Imagine these as a grid of (episodes) x (horizon). The item in the 'top left' is for
+    # 1st episode, 1-ahead prediction. In that episode, we have `N` sets of predictions, so
+    # these store the average of the k-ahead predictions, k in {1,2,3,4,5=HORIZON}. BUT,
+    # because some episodes are too short, it's easier to append a bunch of HORIZON-length
+    # lists and then call np.array() on it later.
+    SSIM_C = {'sv2p_01': [], 'sv2p_10': [], 'svg': [],}
+    SSIM_D = {'sv2p_01': [], 'sv2p_10': [], 'svg': [],}
+
+    for ep in range(nb_eps):
         if ep % 25 == 0:
             print(f'checking predictions on episode {ep}')
 
@@ -202,11 +248,19 @@ def save_images_get_ssim(datatype):
             t_img.paste(PIL.Image.fromarray(frame_rgb), (_w, _h)          )
             t_img.paste(PIL.Image.fromarray(frame_d),   (_w, _h + 56 + ws))
 
-        # Iterate through all predictions, adding them sequentially. Update: actually
+        # Iterate through all PREDICTIONS, adding them sequentially. Update: actually
         # we have to check to see if the episode has enough length at all. If an episode
         # has under 5 actions then we could not do prediction on it.
         row = 2
         hoff = 0
+
+        # SSIM FOR THIS EPISODE ONLY.
+        ep_ssims_sv2p_01_c = []
+        ep_ssims_sv2p_10_c = []
+        ep_ssims_svg_c     = []
+        ep_ssims_sv2p_01_d = []
+        ep_ssims_sv2p_10_d = []
+        ep_ssims_svg_d     = []
 
         for t in range(0, N):
             # NOTE: we can reorder the way we lay out the rows (e.g., I do SV2P then SVG)
@@ -224,6 +278,9 @@ def save_images_get_ssim(datatype):
                 context_0 = gt_context_0[t,:,:,:]
                 context_1 = gt_context_1[t,:,:,:]
             # Now we know we can use `sv2p_10` and `svg`, and `sv2p_01` for the old data.
+            # Here is also the ground truth for this full set of predictions.
+            true_imgs = gt_obs_0[t:t+HORIZON, :, :, :]
+            assert true_imgs.shape == sv2p_10.shape == svg.shape, true_imgs.shape
 
             # Starting width for this group, gets shifted for every batch of predictions.
             _w_start = ws + hoff
@@ -237,7 +294,9 @@ def save_images_get_ssim(datatype):
                     img = PIL.Image.fromarray(sv2p_01[h, :, :, :3])
                     _w = (h+2)*ws + (h+1)*56 + hoff
                     t_img.paste(img, (_w, _h))
-                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01')
+                ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=sv2p_01, channel='color')
+                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01', ssims=ssims)
+                ep_ssims_sv2p_01_c.append(ssims)
                 row += 1
 
             # Next row, SV2P 10 MASK (Edit: putting row += 1 up earlier)
@@ -248,7 +307,9 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray(sv2p_10[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10')
+            ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=sv2p_10, channel='color')
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10', ssims=ssims)
+            ep_ssims_sv2p_10_c.append(ssims)
 
             # Next row, SVG
             row += 1
@@ -259,7 +320,9 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray(svg[h, :, :, :3])
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG')
+            ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=svg, channel='color')
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG', ssims=ssims)
+            ep_ssims_svg_c.append(ssims)
 
             # SV2P ONE MASK, DEPTH.
             if datatype == 'fabric-random':
@@ -271,7 +334,9 @@ def save_images_get_ssim(datatype):
                     img = PIL.Image.fromarray( make_depth_img(sv2p_01[h, :, :, 3:]) )
                     _w = (h+2)*ws + (h+1)*56 + hoff
                     t_img.paste(img, (_w, _h))
-                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01')
+                ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=sv2p_01, channel='depth')
+                draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 01', ssims=ssims)
+                ep_ssims_sv2p_01_d.append(ssims)
 
             # Next row, SV2P 10 MASK, DEPTH
             row += 1
@@ -282,7 +347,9 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray( make_depth_img(sv2p_10[h, :, :, 3:]) )
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10')
+            ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=sv2p_10, channel='depth')
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SV2P 10', ssims=ssims)
+            ep_ssims_sv2p_10_d.append(ssims)
 
             # Next row, SVG, DEPTH
             row += 1
@@ -293,11 +360,39 @@ def save_images_get_ssim(datatype):
                 img = PIL.Image.fromarray( make_depth_img(svg[h, :, :, 3:]) )
                 _w = (h+2)*ws + (h+1)*56 + hoff
                 t_img.paste(img, (_w, _h))
-            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG')
+            ssims = eval_ssim(true_imgs=true_imgs, pred_imgs=svg, channel='depth')
+            draw_ssim(draw, IM_WIDTH, ws, hoff=_h, groupname='SVG', ssims=ssims)
+            ep_ssims_svg_d.append(ssims)
 
             # Prep for next row in next for loop.
             row += 1
             hoff += (ws + 56)
+
+        if N >= 1:
+            # SSIMs. We computed {1-ahead, ..., H-ahead} SSIMs for the above episode.
+            ep_ssims_sv2p_01_c = np.array( ep_ssims_sv2p_01_c )
+            ep_ssims_sv2p_10_c = np.array( ep_ssims_sv2p_10_c )
+            ep_ssims_svg_c     = np.array( ep_ssims_svg_c     )
+            ep_ssims_sv2p_01_d = np.array( ep_ssims_sv2p_01_d )
+            ep_ssims_sv2p_10_d = np.array( ep_ssims_sv2p_10_d )
+            ep_ssims_svg_d     = np.array( ep_ssims_svg_d     )
+            assert ep_ssims_svg_c.shape == (num_obs - HORIZON, HORIZON), \
+                    f'{num_obs}, {ep_ssims_svg_c.shape}'
+
+            if datatype == 'fabric-random':
+                ep_ssims_sv2p_01_c = np.mean(ep_ssims_sv2p_01_c, axis=0)
+                ep_ssims_sv2p_01_d = np.mean(ep_ssims_sv2p_01_d, axis=0)
+            ep_ssims_sv2p_10_c = np.mean(ep_ssims_sv2p_10_c, axis=0)
+            ep_ssims_svg_c     = np.mean(ep_ssims_svg_c    , axis=0)
+            ep_ssims_sv2p_10_d = np.mean(ep_ssims_sv2p_10_d, axis=0)
+            ep_ssims_svg_d     = np.mean(ep_ssims_svg_d    , axis=0)
+
+            SSIM_C['sv2p_01'].append( ep_ssims_sv2p_01_c )
+            SSIM_C['sv2p_10'].append( ep_ssims_sv2p_10_c )
+            SSIM_C['svg'    ].append( ep_ssims_svg_c     )
+            SSIM_D['sv2p_01'].append( ep_ssims_sv2p_01_d )
+            SSIM_D['sv2p_10'].append( ep_ssims_sv2p_10_d )
+            SSIM_D['svg'    ].append( ep_ssims_svg_d     )
 
         # Save in BGR format, which means saving with OpenCV.
         estr = str(ep).zfill(3)
@@ -311,7 +406,26 @@ def save_images_get_ssim(datatype):
         t_img_np = np.array(t_img)
         cv2.imwrite(img_path, t_img_np)
 
+    # Report SSIM metrics
+    print('\nSome SSIM metrics for data type: {datatype}:\n')
+    print('Length of lists: {} <= episodes {}'.format(len(SSIM_C['sv2p_10']), nb_eps))
+
+    if datatype == 'fabric-random':
+        SSIM_C['sv2p_01'] = np.array(SSIM_C['sv2p_01'])
+        SSIM_D['sv2p_01'] = np.array(SSIM_D['sv2p_01'])
+        print('SV2P01, C. {}'.format( np.mean(SSIM_C['sv2p_01'], axis=0)) )
+        print('SV2P01, D. {}'.format( np.mean(SSIM_D['sv2p_01'], axis=0)) )
+    SSIM_C['sv2p_10'] = np.array(SSIM_C['sv2p_10'])
+    SSIM_C['svg'    ] = np.array(SSIM_C['svg'    ])
+    SSIM_D['sv2p_10'] = np.array(SSIM_D['sv2p_10'])
+    SSIM_D['svg'    ] = np.array(SSIM_D['svg'    ])
+    print('SV2P10, C. {}'.format( np.mean(SSIM_C['sv2p_10'], axis=0)) )
+    print('SV2P10, D. {}'.format( np.mean(SSIM_D['sv2p_10'], axis=0)) )
+    print('SVG, C.    {}'.format( np.mean(SSIM_C['svg'],     axis=0)) )
+    print('SVG, D.    {}'.format( np.mean(SSIM_D['svg'],     axis=0)) )
+    print('\nNote, shape SV2P, SVG: {}, {}'.format(SSIM_C['sv2p_10'].shape, SSIM_C['svg'].shape))
+
 
 if __name__ == "__main__":
-    save_images_get_ssim(datatype='fabric-random')
-    #save_images_get_ssim(datatype='fabric-01-2021')
+    #save_images_get_ssim(datatype='fabric-random')
+    save_images_get_ssim(datatype='fabric-01-2021')

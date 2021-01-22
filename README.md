@@ -249,6 +249,52 @@ python predict_svg_lp.py \
 Look at `results_svg/` for the pickle file output, then other results
 directories for the IMAGES formed after running `compare_sv2p_svg.py`.
 
+To measure quality of predictions:
+
+```
+~/svg (master) $ python compare_sv2p_svg.py
+checking predictions on episode 0
+checking predictions on episode 25
+checking predictions on episode 50
+[...]
+checking predictions on episode 325
+checking predictions on episode 350
+checking predictions on episode 375
+
+Some SSIM metrics for data type: {datatype}:
+
+Length of lists: 343 <= episodes 400
+SV2P01, C. [0.80868256 0.71070784 0.64167085 0.61609412 0.60427539]
+SV2P01, D. [0.77967072 0.60795892 0.49545047 0.43940433 0.4072763 ]
+SV2P10, C. [0.82166134 0.71012695 0.63812927 0.61126524 0.59817116]
+SV2P10, D. [0.78961892 0.63112345 0.52688491 0.47046012 0.43343268]
+SVG, C.    [0.73348551 0.66398772 0.63355589 0.61872332 0.61196228]
+SVG, D.    [0.62156883 0.55276531 0.52252006 0.50554262 0.49673391]
+
+Note, shape SV2P, SVG: (343, 5), (343, 5)
+
+~/svg (master) $ python compare_sv2p_svg.py
+checking predictions on episode 0
+checking predictions on episode 25
+checking predictions on episode 50
+checking predictions on episode 75
+[...]
+checking predictions on episode 325
+checking predictions on episode 350
+checking predictions on episode 375
+
+Some SSIM metrics for data type: {datatype}:
+
+Length of lists: 317 <= episodes 400
+SV2P10, C. [0.77405443 0.70618701 0.63868138 0.61616294 0.6054498 ]
+SV2P10, D. [0.75843587 0.65731706 0.57656609 0.52884305 0.49272168]
+SVG, C.    [0.7317923  0.65905534 0.63314114 0.62326649 0.61717984]
+SVG, D.    [0.69235168 0.615077   0.5867145  0.5723614  0.56346628]
+
+Note, shape SV2P, SVG: (317, 5), (317, 5)
+```
+
+
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
