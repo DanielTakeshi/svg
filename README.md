@@ -261,7 +261,7 @@ checking predictions on episode 325
 checking predictions on episode 350
 checking predictions on episode 375
 
-Some SSIM metrics for data type: {datatype}:
+Some SSIM metrics for data type: fabric-random:
 
 Length of lists: 343 <= episodes 400
 SV2P01, C. [0.80868256 0.71070784 0.64167085 0.61609412 0.60427539]
@@ -283,7 +283,7 @@ checking predictions on episode 325
 checking predictions on episode 350
 checking predictions on episode 375
 
-Some SSIM metrics for data type: {datatype}:
+Some SSIM metrics for data type: fabric-01-2021:
 
 Length of lists: 317 <= episodes 400
 SV2P10, C. [0.77405443 0.70618701 0.63868138 0.61616294 0.6054498 ]
