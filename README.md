@@ -189,52 +189,64 @@ python predict_svg_lp.py \
 
 Look at `results_svg/` for the pickle file output, then other results
 directories for the IMAGES formed after running `compare_sv2p_svg.py`.
+To measure quality of predictions, look at this script:
 
-To measure quality of predictions:
 
 ```
 ~/svg (master) $ python compare_sv2p_svg.py
 checking predictions on episode 0
 checking predictions on episode 25
-checking predictions on episode 50
-[...]
-checking predictions on episode 325
-checking predictions on episode 350
-checking predictions on episode 375
-
-Some SSIM metrics for data type: fabric-random:
-
-Length of lists: 343 <= episodes 400
-SV2P01, C. [0.80868256 0.71070784 0.64167085 0.61609412 0.60427539]
-SV2P01, D. [0.77967072 0.60795892 0.49545047 0.43940433 0.4072763 ]
-SV2P10, C. [0.82166134 0.71012695 0.63812927 0.61126524 0.59817116]
-SV2P10, D. [0.78961892 0.63112345 0.52688491 0.47046012 0.43343268]
-SVG, C.    [0.73348551 0.66398772 0.63355589 0.61872332 0.61196228]
-SVG, D.    [0.62156883 0.55276531 0.52252006 0.50554262 0.49673391]
-
-Note, shape SV2P, SVG: (343, 5), (343, 5)
-
-~/svg (master) $ python compare_sv2p_svg.py
-checking predictions on episode 0
-checking predictions on episode 25
-checking predictions on episode 50
-checking predictions on episode 75
-[...]
-checking predictions on episode 325
+...
 checking predictions on episode 350
 checking predictions on episode 375
 
 Some SSIM metrics for data type: fabric-01-2021:
 
 Length of lists: 317 <= episodes 400
-SV2P10, C. [0.77405443 0.70618701 0.63868138 0.61616294 0.6054498 ]
-SV2P10, D. [0.75843587 0.65731706 0.57656609 0.52884305 0.49272168]
-SVG, C.    [0.7317923  0.65905534 0.63314114 0.62326649 0.61717984]
-SVG, D.    [0.69235168 0.615077   0.5867145  0.5723614  0.56346628]
+SV2P10, C. [0.774 0.706 0.639 0.616 0.605]
+SV2P10, D. [0.758 0.657 0.577 0.529 0.493]
+SVG, C.    [0.732 0.659 0.633 0.623 0.617]
+SVG, D.    [0.692 0.615 0.587 0.572 0.563]
 
 Note, shape SV2P, SVG: (317, 5), (317, 5)
+
+Now standard deviations among the episodes:
+
+SV2P10, C. [0.073 0.056 0.053 0.051 0.052]
+SV2P10, D. [0.088 0.078 0.076 0.066 0.061]
+SVG, C.    [0.062 0.063 0.052 0.052 0.054]
+SVG, D.    [0.083 0.089 0.084 0.085 0.086]
 ```
 
+```
+~/svg (master) $ python compare_sv2p_svg.py
+checking predictions on episode 0
+checking predictions on episode 25
+...
+checking predictions on episode 350
+checking predictions on episode 375
+
+Some SSIM metrics for data type: fabric-random:
+
+Length of lists: 343 <= episodes 400
+SV2P01, C. [0.809 0.711 0.642 0.616 0.604]
+SV2P01, D. [0.78  0.608 0.495 0.439 0.407]
+SV2P10, C. [0.822 0.71  0.638 0.611 0.598]
+SV2P10, D. [0.79  0.631 0.527 0.47  0.433]
+SVG, C.    [0.733 0.664 0.634 0.619 0.612]
+SVG, D.    [0.622 0.553 0.523 0.506 0.497]
+
+Note, shape SV2P, SVG: (343, 5), (343, 5)
+
+Now standard deviations among the episodes:
+
+SV2P01, C. [0.066 0.057 0.051 0.051 0.052]
+SV2P01, D. [0.08  0.08  0.058 0.045 0.038]
+SV2P10, C. [0.063 0.055 0.051 0.05  0.052]
+SV2P10, D. [0.076 0.082 0.065 0.05  0.043]
+SVG, C.    [0.061 0.055 0.052 0.049 0.05 ]
+SVG, D.    [0.085 0.087 0.086 0.085 0.086]
+```
 
 
 [1]:https://github.com/edenton/svg/pull/6

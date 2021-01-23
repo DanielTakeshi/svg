@@ -426,7 +426,16 @@ def save_images_get_ssim(datatype):
     print('SVG, D.    {}'.format( np.mean(SSIM_D['svg'],     axis=0)) )
     print('\nNote, shape SV2P, SVG: {}, {}'.format(SSIM_C['sv2p_10'].shape, SSIM_C['svg'].shape))
 
+    print('\nNow standard deviations among the episodes:\n')
+    if datatype == 'fabric-random':
+        print('SV2P01, C. {}'.format( np.std(SSIM_C['sv2p_01'], axis=0)) )
+        print('SV2P01, D. {}'.format( np.std(SSIM_D['sv2p_01'], axis=0)) )
+    print('SV2P10, C. {}'.format( np.std(SSIM_C['sv2p_10'], axis=0)) )
+    print('SV2P10, D. {}'.format( np.std(SSIM_D['sv2p_10'], axis=0)) )
+    print('SVG, C.    {}'.format( np.std(SSIM_C['svg'],     axis=0)) )
+    print('SVG, D.    {}'.format( np.std(SSIM_D['svg'],     axis=0)) )
+
 
 if __name__ == "__main__":
-    #save_images_get_ssim(datatype='fabric-random')
-    save_images_get_ssim(datatype='fabric-01-2021')
+    save_images_get_ssim(datatype='fabric-random')
+    #save_images_get_ssim(datatype='fabric-01-2021')
