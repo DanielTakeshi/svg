@@ -189,68 +189,12 @@ python predict_svg_lp.py \
 
 Look at `results_svg/` for the pickle file output, then other results
 directories for the IMAGES formed after running `compare_sv2p_svg.py`.
-To measure quality of predictions, look at this script:
-
-
-```
-~/svg (master) $ python compare_sv2p_svg.py
-checking predictions on episode 0
-checking predictions on episode 25
-...
-checking predictions on episode 350
-checking predictions on episode 375
-
-Some SSIM metrics for data type: fabric-01-2021:
-
-Length of lists: 317 <= episodes 400
-SV2P10, C. [0.774 0.706 0.639 0.616 0.605]
-SV2P10, D. [0.758 0.657 0.577 0.529 0.493]
-SVG, C.    [0.732 0.659 0.633 0.623 0.617]
-SVG, D.    [0.692 0.615 0.587 0.572 0.563]
-
-Note, shape SV2P, SVG: (317, 5), (317, 5)
-
-Now standard deviations among the episodes:
-
-SV2P10, C. [0.073 0.056 0.053 0.051 0.052]
-SV2P10, D. [0.088 0.078 0.076 0.066 0.061]
-SVG, C.    [0.062 0.063 0.052 0.052 0.054]
-SVG, D.    [0.083 0.089 0.084 0.085 0.086]
-```
-
-```
-~/svg (master) $ python compare_sv2p_svg.py
-checking predictions on episode 0
-checking predictions on episode 25
-...
-checking predictions on episode 350
-checking predictions on episode 375
-
-Some SSIM metrics for data type: fabric-random:
-
-Length of lists: 343 <= episodes 400
-SV2P01, C. [0.809 0.711 0.642 0.616 0.604]
-SV2P01, D. [0.78  0.608 0.495 0.439 0.407]
-SV2P10, C. [0.822 0.71  0.638 0.611 0.598]
-SV2P10, D. [0.79  0.631 0.527 0.47  0.433]
-SVG, C.    [0.733 0.664 0.634 0.619 0.612]
-SVG, D.    [0.622 0.553 0.523 0.506 0.497]
-
-Note, shape SV2P, SVG: (343, 5), (343, 5)
-
-Now standard deviations among the episodes:
-
-SV2P01, C. [0.066 0.057 0.051 0.051 0.052]
-SV2P01, D. [0.08  0.08  0.058 0.045 0.038]
-SV2P10, C. [0.063 0.055 0.051 0.05  0.052]
-SV2P10, D. [0.076 0.082 0.065 0.05  0.043]
-SVG, C.    [0.061 0.055 0.052 0.049 0.05 ]
-SVG, D.    [0.085 0.087 0.086 0.085 0.086]
-```
-
+To measure quality of predictions, look at `compare_sv2p_svg.py` and [this
+pastebin][6] which accumulates my results.
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
 [3]:https://pytorch.org/get-started/previous-versions/
 [4]:https://github.com/edenton/svg/issues/10
 [5]:https://github.com/ryanhoque/cloth-visual-mpc/commit/d17e30e7edaa9409c5317a86cb9fb263674b0f65
+[6]:https://pastebin.com/raw/rigB93wj
