@@ -5,16 +5,7 @@ Setting defaults to n_past=1 and n_future=5 to be consistent with RSS 2020 and S
 And also for the sake of visualizations + SSIM, we're just going to generate one
 set of predictions (nsample=1), which is again similar to what we did in SV2P.
 I am also assuming it's action-conditioned by default and act_dim=4. EXACT CALLS:
-
-    SVG fabric-random, 80-20 split, last model, 800 epochs.
-
-python predict_svg_lp.py \
-    --model_path /data/svg/logs-20-Jan-SVG-LP-Mason/fabric-random/model\=dcgan56x56-rnn_size\=256-predictor-posterior-prior-rnn_layers\=2-1-1-n_past\=3-n_future\=7-lr\=0.0020-g_dim\=128-z_dim\=10-last_frame_skip\=False-beta\=0.0001000-act-cond-1/model.pth  \
-    --data_path /home/seita/cloth-visual-mpc/logs/demos-2021-01-20-pol-random-seeds-987654_to_987657-actclip-domrand-rgbd-tiers_all-epis_400_COMBINED.pkl
-
-    SVG fabric-01_2021, 80-20 split, last model, 800 epochs.
-
-(TODO I don't have data path yet)
+see the bash script `predict_svg.sh`.
 """
 import os
 import sys
@@ -157,10 +148,12 @@ def predict(x, x_acts):
 # ---------------------------------------------------------------------------------------------------- #
 
 if __name__ == "__main__":
-    # Somewhat hacky and assumes a specific directory structure.
+    # Somewhat hacky and assumes a specific directory structure. Update: making predictions
+    # for a variety of models, hence let's put the model path at the end.
+    _, tail = os.path.split(opt.model_path)
     assert 'cloth-visual-mpc/logs/' in opt.data_path, opt.data_path
     outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg/')
-    outname = (outname).replace('.pkl', '_PREDS_SVG-LP.pkl')
+    outname = (outname).replace('.pkl', f'_PREDS_SVG-LP_{tail}.pkl')
 
     # Load, usually from the cloth-visual-mpc/logs directory.
     with open(opt.data_path, 'rb') as fh:
