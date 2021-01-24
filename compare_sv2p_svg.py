@@ -5,10 +5,11 @@ will be in a standard pickle file that we can load anywhere.]
 For SV2P prediction format, see:
 https://github.com/ryanhoque/cloth-visual-mpc/blob/sv2p/vismpc/scripts/predict.py
 
-NOTE:
-https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
+NOTE: https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
 we are using the older way of doing ssim_metric, so I don't know if documentation is up to date.
 Probably easier to do each channel separately, then average, as Dr. Denton does it.
+
+Update Jan 24: iterate through different model snapshots for SVG.
 """
 import os
 import cv2
@@ -25,25 +26,33 @@ from skimage.measure import compare_ssim as ssim_metric
 import PIL
 from PIL import (Image, ImageDraw, ImageFont)
 np.set_printoptions(precision=3)
-HORIZON = 5
+
+
+pp = argparse.ArgumentParser()
+pp.add_argument('--datatype', default='')
+pp.add_argument('--svg_model', default='model_0050')
+args = pp.parse_args()
+assert args.datatype in ['fabric-random', 'fabric-01-2021'], args.datatype
+
 
 # ----------------------------------------------------------------------------- #
 # ------------------------------- DATA FILES ---------------------------------- #
 # ----------------------------------------------------------------------------- #
+HORIZON = 5
 HEAD_SV2P = '/home/seita/cloth-visual-mpc/logs/'
 HEAD_SVG  = '/home/seita/svg/results_svg/'
 
-# fr = fabric_random
+# fr = fabric_random. Always load even though we might be using the other data.
 TAIL_SV2P_01_fr = 'demos-fabric-random-epis_400_COMBINED_PREDS_SV2P_01.pkl'
 TAIL_SV2P_10_fr = 'demos-fabric-random-epis_400_COMBINED_PREDS_SV2P_10.pkl'
-TAIL_SVG_fr     = 'demos-fabric-random-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+TAIL_SVG_fr    = f'demos-fabric-random-epis_400_COMBINED_PREDS_SVG-LP_{args.svg_model}.pkl'
 SV2P_01_fr_pth  = join(HEAD_SV2P, TAIL_SV2P_01_fr)
 SV2P_10_fr_pth  = join(HEAD_SV2P, TAIL_SV2P_10_fr)
 SVG_fr_pth      = join(HEAD_SVG,  TAIL_SVG_fr)
 
-# fnew = fabric_01-2021 (new data)
+# fnew = fabric_01-2021 (new data). Always load even though we might be using the other data.
 TAIL_SV2P_10_fnew = 'demos-fabric-01-2021-epis_400_COMBINED_PREDS_SV2P_10.pkl'
-TAIL_SVG_fnew     = 'demos-fabric-01-2021-epis_400_COMBINED_PREDS_SVG-LP.pkl'
+TAIL_SVG_fnew    = f'demos-fabric-01-2021-epis_400_COMBINED_PREDS_SVG-LP_{args.svg_model}.pkl'
 SV2P_10_fnew_pth  = join(HEAD_SV2P, TAIL_SV2P_10_fnew)
 SVG_fnew_pth      = join(HEAD_SVG,  TAIL_SVG_fnew)
 
@@ -53,13 +62,13 @@ with open(SV2P_01_fr_pth, 'rb') as fh:
 with open(SV2P_10_fr_pth, 'rb') as fh:
     SV2P_10_fr = pickle.load(fh)
 with open(SVG_fr_pth, 'rb') as fh:
-    SVG_fr = pickle.load(fh)
+    SVG_fr     = pickle.load(fh)
 
 # fnew data
 with open(SV2P_10_fnew_pth, 'rb') as fh:
     SV2P_10_fnew = pickle.load(fh)
 with open(SVG_fnew_pth, 'rb') as fh:
-    SVG_fnew = pickle.load(fh)
+    SVG_fnew     = pickle.load(fh)
 
 assert len(SV2P_01_fr) == len(SV2P_10_fr) == len(SVG_fr) == len(SV2P_10_fnew) == len(SVG_fnew)
 # ----------------------------------------------------------------------------- #
@@ -106,6 +115,9 @@ def draw_ssim(draw, IM_WIDTH, ws, hoff, groupname, ssims):
     text_3 = f'ssim {ssims[3]:0.2f}'
     text_4 = f'ssim {ssims[4]:0.2f}'
     off = 9
+    if 'SVG' in groupname:
+        groupname += args.svg_model
+        groupname = groupname.replace('model_', '')
     draw.text((ssim_width, hoff+0*off), groupname, fill=(0,0,0,0))
     draw.text((ssim_width, hoff+1*off), text_0, fill=(0,0,0,0))
     draw.text((ssim_width, hoff+2*off), text_1, fill=(0,0,0,0))
@@ -369,8 +381,8 @@ def save_images_get_ssim(datatype):
             row += 1
             hoff += (ws + 56)
 
+        # SSIMs if at least 1 prediction. Computed {1-ahead, ..., H-ahead} SSIMs for this episode.
         if N >= 1:
-            # SSIMs. We computed {1-ahead, ..., H-ahead} SSIMs for the above episode.
             ep_ssims_sv2p_01_c = np.array( ep_ssims_sv2p_01_c )
             ep_ssims_sv2p_10_c = np.array( ep_ssims_sv2p_10_c )
             ep_ssims_svg_c     = np.array( ep_ssims_svg_c     )
@@ -400,42 +412,52 @@ def save_images_get_ssim(datatype):
         sstr = str(num_obs).zfill(2)
         img_path = f'preds_{datatype}_ep_{estr}_obs_{sstr}_rgbd.png'
         if datatype == 'fabric-random':
-            img_path = join('results_fr', img_path)
+            head_dir = join('results_frand', args.svg_model)
+            os.makedirs(head_dir, exist_ok=True)
+            img_path = join(head_dir, img_path)
         else:
-            img_path = join('results_fnew', img_path)
+            head_dir = join('results_fnew', args.svg_model)
+            os.makedirs(head_dir, exist_ok=True)
+            img_path = join(head_dir, img_path)
         #t_img.save(img_path)  # RGB, but we want BGR, hence do these two:
         t_img_np = np.array(t_img)
         cv2.imwrite(img_path, t_img_np)
 
     # Report SSIM metrics
-    print(f'\nSome SSIM metrics for data type: {datatype}:\n')
+    print(f'\nSome SSIM metrics for: {args}:\n')
     print('Length of lists: {} <= episodes {}'.format(len(SSIM_C['sv2p_10']), nb_eps))
 
+    # Form numpy arrays.
     if datatype == 'fabric-random':
         SSIM_C['sv2p_01'] = np.array(SSIM_C['sv2p_01'])
         SSIM_D['sv2p_01'] = np.array(SSIM_D['sv2p_01'])
-        print('SV2P01, C. {}'.format( np.mean(SSIM_C['sv2p_01'], axis=0)) )
-        print('SV2P01, D. {}'.format( np.mean(SSIM_D['sv2p_01'], axis=0)) )
     SSIM_C['sv2p_10'] = np.array(SSIM_C['sv2p_10'])
     SSIM_C['svg'    ] = np.array(SSIM_C['svg'    ])
     SSIM_D['sv2p_10'] = np.array(SSIM_D['sv2p_10'])
     SSIM_D['svg'    ] = np.array(SSIM_D['svg'    ])
+
+    # Print values. To make things easier to copy and paste, do color then depth.
+    if datatype == 'fabric-random':
+        print('SV2P01, C. {}'.format( np.mean(SSIM_C['sv2p_01'], axis=0)) )
     print('SV2P10, C. {}'.format( np.mean(SSIM_C['sv2p_10'], axis=0)) )
-    print('SV2P10, D. {}'.format( np.mean(SSIM_D['sv2p_10'], axis=0)) )
     print('SVG, C.    {}'.format( np.mean(SSIM_C['svg'],     axis=0)) )
+    if datatype == 'fabric-random':
+        print('SV2P01, D. {}'.format( np.mean(SSIM_D['sv2p_01'], axis=0)) )
+    print('SV2P10, D. {}'.format( np.mean(SSIM_D['sv2p_10'], axis=0)) )
     print('SVG, D.    {}'.format( np.mean(SSIM_D['svg'],     axis=0)) )
     print('\nNote, shape SV2P, SVG: {}, {}'.format(SSIM_C['sv2p_10'].shape, SSIM_C['svg'].shape))
 
     print('\nNow standard deviations among the episodes:\n')
     if datatype == 'fabric-random':
         print('SV2P01, C. {}'.format( np.std(SSIM_C['sv2p_01'], axis=0)) )
-        print('SV2P01, D. {}'.format( np.std(SSIM_D['sv2p_01'], axis=0)) )
     print('SV2P10, C. {}'.format( np.std(SSIM_C['sv2p_10'], axis=0)) )
-    print('SV2P10, D. {}'.format( np.std(SSIM_D['sv2p_10'], axis=0)) )
     print('SVG, C.    {}'.format( np.std(SSIM_C['svg'],     axis=0)) )
+    if datatype == 'fabric-random':
+        print('SV2P01, D. {}'.format( np.std(SSIM_D['sv2p_01'], axis=0)) )
+    print('SV2P10, D. {}'.format( np.std(SSIM_D['sv2p_10'], axis=0)) )
     print('SVG, D.    {}'.format( np.std(SSIM_D['svg'],     axis=0)) )
+    print()
 
 
 if __name__ == "__main__":
-    save_images_get_ssim(datatype='fabric-random')
-    #save_images_get_ssim(datatype='fabric-01-2021')
+    save_images_get_ssim(datatype=args.datatype)

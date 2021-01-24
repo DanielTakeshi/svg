@@ -151,6 +151,7 @@ if __name__ == "__main__":
     # Somewhat hacky and assumes a specific directory structure. Update: making predictions
     # for a variety of models, hence let's put the model path at the end.
     _, tail = os.path.split(opt.model_path)
+    tail = tail.replace('.pth', '')
     assert 'cloth-visual-mpc/logs/' in opt.data_path, opt.data_path
     outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg/')
     outname = (outname).replace('.pkl', f'_PREDS_SVG-LP_{tail}.pkl')
