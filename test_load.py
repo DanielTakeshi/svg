@@ -1,21 +1,13 @@
 """Put things in a class to make it easier to save/load in other projects."""
-import torch
-import torch.optim as optim
-import torch.nn as nn
 import argparse
 import os
-import random
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-import utils
-import itertools
-import progressbar
-import numpy as np
 import sys
 import pickle
-from collections import defaultdict
+import random
+import numpy as np
 
 # This is key. Actually should be lowercase, oops. :)
+# We'll have to figure out how to import this in other code.
 import SVG
 
 # Here's how we can test loading.
