@@ -124,7 +124,7 @@ that gets added.
 python train_svg_lp.py  --dataset fabric-random  --g_dim 128  --z_dim 10  --beta 0.0001 \
     --n_past 3  --n_future 7  --n_eval 10  --channels 4  --image_width 56 \
     --data_root /data/svg/fabric-random  --log_dir /data/svg/logs/ \
-    --epoch_size 200  --niter 800  --action_cond
+    --epoch_size 200  --niter 1500  --action_cond
 ```
 
 Without `--action_cond`, the model can still generate some predictions, but
@@ -133,9 +133,9 @@ episode length of 10. For this we're defaulting to 2 context and 5 future:
 
 ```
 python train_svg_lp.py  --dataset fabric-01_2021  --g_dim 128  --z_dim 10  --beta 0.0001 \
-    --n_past 2  --n_future 5  --n_eval 10  --channels 4  --image_width 56 \
+    --n_past 2  --n_future 5  --n_eval 7  --channels 4  --image_width 56 \
     --data_root /data/svg/fabric-01_2021  --log_dir /data/svg/logs/ \
-    --epoch_size 200  --niter 800  --action_cond
+    --epoch_size 200  --niter 1500  --action_cond
 ```
 
 To plot results for MSE and KL Divergence losses, run something like:
@@ -191,6 +191,10 @@ Look at `results_svg/` for the pickle file output, then other results
 directories for the IMAGES formed after running `compare_sv2p_svg.py`.
 To measure quality of predictions, look at `compare_sv2p_svg.py` and [this
 pastebin][6] which accumulates my results.
+
+
+**UPDATE**: actually to save in a way that makes it easier to load this later,
+please use the `SVG.py` script.
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
