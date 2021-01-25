@@ -27,14 +27,15 @@ class SVG:
         self.opt = opt
 
         if opt.model_dir != '':
-            # load model and continue training from checkpoint
-            #saved_model = torch.load('%s/model.pth' % opt.model_dir)
+            # load model ONLY FOR INFERENCE, not for continued training
             checkpoint = torch.load(opt.model_dir) # pass in ENTIRE path, including specific epoch if desired.
             optimizer = opt.optimizer
             model_dir = opt.model_dir
-            opt = checkpoint['opt']  # Pretty sure we need this to properly define our classes before loading state dicts
+            opt = checkpoint['opt']     # Pretty sure we need this to properly define our classes before loading state dicts
+            self.opt = opt              # Actually this won't matter too much, but I think it's safe to have.
             opt.optimizer = optimizer
             opt.model_dir = model_dir
+            opt.batch_size = 1          # NOTE Let's override this FOR INFERENCE since otherwise the RNNs expect the same train batch size.
             opt.log_dir = '%s/continued' % opt.log_dir
         else:
             name = 'model=%s%dx%d-rnn_size=%d-predictor-posterior-prior-rnn_layers=%d-%d-%d-n_past=%d-n_future=%d-lr=%.4f-g_dim=%d-z_dim=%d-last_frame_skip=%s-beta=%.7f%s' % (
@@ -591,11 +592,18 @@ class SVG:
             with open(loss_pth, 'wb') as fh:
                 pickle.dump(LOSSES, fh)
 
-    def predict(self, x, x_acts):
+    def predict(self, x, x_acts, n_past=1, n_future=5):
         """Daniel: see predict_svg_lp.py, this should be dragged/dropped into cloth-visual-mpc."""
         opt = self.opt
-        assert opt.n_past == 1
+        #assert opt.n_past == 1  # If predicting we want n_past=1 but usually training was different.
+        # Actually that's a good point we should not be using the same opt, let's specify as args.
         gen_seq = []
+
+        self.encoder.eval()
+        self.decoder.eval()
+        self.frame_predictor.eval()
+        self.posterior.eval()
+        self.prior.eval()
         self.frame_predictor.hidden = self.frame_predictor.init_hidden()
         self.posterior.hidden       = self.posterior.init_hidden()
         self.prior.hidden           = self.prior.init_hidden()
@@ -606,9 +614,10 @@ class SVG:
         x_in = np.array(x_in).astype(np.float32) / 255.0     # Only major processing was div by 255.
         x_in = torch.from_numpy(x_in).cuda()
 
-        for i in range(1, opt.n_eval):
+        # Remmeber, we normally have n_eval here, which is n_past + n_future.
+        for i in range(1, n_past + n_future):
             h = self.encoder(x_in)
-            if opt.last_frame_skip or i <= opt.n_past:
+            if opt.last_frame_skip or i <= n_past:
                 h, skip = h
             else:
                 h, _ = h
@@ -622,7 +631,7 @@ class SVG:
                 h = torch.cat([h, x_a], dim=1)  # overrides h
 
             h = h.detach()
-            if i < opt.n_past:
+            if i < n_past:
                 h_target = self.encoder(x[i])
                 h_target = h_target[0].detach()
                 z_t, _, _ = self.posterior(h_target)
