@@ -25,6 +25,9 @@ conda activate svg
 Then, create the directory `/data/svg/` which should enable us to run scripts.
 If something wrong happens, just restart: `conda env remove -n svg`.
 
+**UPDATE Jan 26, 2021:** I changed this so it's a package. Install with `pip
+install -e .`. Also for training please use `SVG.py`.
+
 ## SM-MNIST
 
 This data (proposed in the SVG paper itself) is a *stochastic* version of

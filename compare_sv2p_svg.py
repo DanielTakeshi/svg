@@ -17,7 +17,7 @@ import sys
 import pickle
 import random
 import argparse
-import utils
+from svg import utils
 import numpy as np
 from os.path import join
 from collections import defaultdict

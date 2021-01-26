@@ -8,7 +8,8 @@ import sys
 import pickle
 import random
 import numpy as np
-import SVG
+#import SVG
+from svg.SVG import SVG
 
 
 if __name__ == "__main__":
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_future',  default=5)
     parser.add_argument('--data_path', default='', help='not used in SVG, just for this script')
     opt = parser.parse_args()
-    svg = SVG.SVG(opt)
+    svg_model = SVG(opt)
     print('\nSuccessfully loaded! Woo hoo, see the opt above. Now try prediction.')
 
     # Somewhat hacky and assumes a specific directory structure. Update: making predictions
@@ -43,7 +44,7 @@ if __name__ == "__main__":
         for i in range(num_steps + 1 - opt.n_future):
             currim = episode['obs'][i]                      # shape (56, 56, 4), type uint8
             curracts = all_acts[i:i + opt.n_future]         # shape (H, 4)
-            pred = svg.predict(x=currim, x_acts=curracts)   # shape (H, 56, 56, 4), float32, in (0,1)
+            pred = svg_model.predict(x=currim, x_acts=curracts)   # shape (H, 56, 56, 4), float32, in (0,1)
             preds.append(pred)                              # ALL preds: \hat{x}_{i+1 : i+H}
             acts.append(curracts)                           # input actions: a_{i : i+H-1}
             contexts.append(currim)

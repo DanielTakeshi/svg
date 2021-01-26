@@ -7,7 +7,8 @@ import os
 import random
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-import utils
+from svg import utils
+import svg.models.lstm as lstm_models
 import itertools
 import progressbar
 import numpy as np
@@ -73,8 +74,6 @@ class SVG:
         # Ok now here we can't just do `saved_model['prior']` or `checkpoint['prior']`, we have to
         # build the classes for the models first, then we can load their state dicts. Fortunately
         # the `opt` gives us all we need.
-        import models.lstm as lstm_models
-
         in_frame = opt.g_dim + opt.z_dim
         in_postr = opt.g_dim
         in_prior = opt.g_dim
@@ -98,18 +97,18 @@ class SVG:
 
         if opt.model == 'dcgan':
             if opt.image_width == 56:
-                import models.dcgan_56 as model
+                import svg.models.dcgan_56 as model
             elif opt.image_width == 64:
-                import models.dcgan_64 as model
+                import svg.models.dcgan_64 as model
             elif opt.image_width == 128:
-                import models.dcgan_128 as model
+                import svg.models.dcgan_128 as model
             else:
                 raise ValueError(opt.image_width)
         elif opt.model == 'vgg':
             if opt.image_width == 64:
-                import models.vgg_64 as model
+                import svg.models.vgg_64 as model
             elif opt.image_width == 128:
-                import models.vgg_128 as model
+                import svg.models.vgg_128 as model
             else:
                 raise ValueError(opt.image_width)
         else:
