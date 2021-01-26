@@ -20,7 +20,8 @@ class SVG:
     """Follows https://pytorch.org/tutorials/beginner/saving_loading_models.html
 
     The __init__ reconstructs models from classes, and if desired (if model_dir != ''),
-    we use the load_state_dict method.
+    we use the load_state_dict method. Use the same `model_dir != ''` condition to check
+    if we should do other stuff, such as avoid making the train/test data loaders.
     """
 
     def __init__(self, opt):
@@ -149,19 +150,22 @@ class SVG:
         self.mse_criterion.cuda()
 
         # For data loading.
-        train_data, test_data = utils.load_dataset(opt)
-        self.train_loader = DataLoader(train_data,
-                                       num_workers=opt.data_threads,
-                                       batch_size=opt.batch_size,
-                                       shuffle=True,
-                                       drop_last=True,
-                                       pin_memory=True)
-        self.test_loader = DataLoader(test_data,
-                                      num_workers=opt.data_threads,
-                                      batch_size=opt.batch_size,
-                                      shuffle=True,
-                                      drop_last=True,
-                                      pin_memory=True)
+        if opt.model_dir != '':
+            print('opt.model_dir is not empty, hence avoid making train/test data loaders')
+        else:
+            train_data, test_data = utils.load_dataset(opt)
+            self.train_loader = DataLoader(train_data,
+                                           num_workers=opt.data_threads,
+                                           batch_size=opt.batch_size,
+                                           shuffle=True,
+                                           drop_last=True,
+                                           pin_memory=True)
+            self.test_loader = DataLoader(test_data,
+                                          num_workers=opt.data_threads,
+                                          batch_size=opt.batch_size,
+                                          shuffle=True,
+                                          drop_last=True,
+                                          pin_memory=True)
 
     def kl_criterion(self, mu1, logvar1, mu2, logvar2):
         # KL( N(mu_1, sigma2_1) || N(mu_2, sigma2_2)) = log( sqrt(
