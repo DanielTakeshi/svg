@@ -596,7 +596,26 @@ class SVG:
                 pickle.dump(LOSSES, fh)
 
     def predict(self, x, x_acts, n_past=1, n_future=5):
-        """Daniel: see predict_svg_lp.py, this should be dragged/dropped into cloth-visual-mpc."""
+        """Daniel: see also predict_svg_lp.py, this should be dragged/dropped into cloth-visual-mpc.
+
+        Since n_past=1, we definitely need `i <= opt.n_past` to get ANY skip connection.
+        Daniel: as usual, iter `i` means x_{i-1} is most recently conditioned frame, SVG
+        SAMPLES z_i and x_i. If it's before n_past, just use ground truth x_i for image.
+        Code mirrors the train_svg_lp's `plot()` function.
+
+        Need to do some reshaping. Input `x` has shape (56,56,4) but want (1,4,56,56), so move
+        the channel to leading dimension, then add np.newaxis. Then convert to PyTorch. That
+        should be x_in; more generally we don't really need `x` to be a list since the context
+        frames should just be 1 -- check if that's not the case. See data/fabrics.py and the
+        utils.normalize_data for correct shapes.
+
+        AH! Just remembered that we have to get the range into [0,1].
+
+        UPDATE: actually now n_acts for prediction is of shape (N,H,4) where N is the CEM
+        population size. We'll have to increase the batch size to 2000 and replicate the
+        input image. Or maybe use a different method entirely. The input image is (56,56,4),
+        which is the same for cloth-visual-mpc and here. Just have to adjust actions.
+        """
         opt = self.opt
         #assert opt.n_past == 1  # If predicting we want n_past=1 but usually training was different.
         # Actually that's a good point we should not be using the same opt, let's specify as args.
