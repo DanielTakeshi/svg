@@ -17,8 +17,7 @@ HEAD=/data/svg/logs-Jan26-inprogress
 #        --data_path=/home/seita/cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl
 #done
 
-# We don't have all models as of Jan 26.
-for MODEL in model_0050.pth model_0100.pth model_0200.pth model_0400.pth model_0600.pth model_0800.pth ; do
+for MODEL in model_0050.pth model_0100.pth model_0200.pth model_0400.pth model_0600.pth model_0800.pth model_1000.pth model_1200.pth model_1499.pth ; do
     python test_load_ssim.py \
         --model_dir=${HEAD}/fabric-random/model=dcgan56x56-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=3-n_future=7-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000-act-cond-1/${MODEL}  \
         --data_path=/home/seita/cloth-visual-mpc/logs/demos-fabric-random-epis_400_COMBINED.pkl
@@ -35,8 +34,7 @@ done
 #        --data_path=/home/seita/cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl
 #done
 
-# We don't have all models as of Jan 26.
-for MODEL in model_0050.pth model_0100.pth model_0200.pth model_0400.pth model_0600.pth model_0800.pth model_1000.pth model_1200.pth ; do
+for MODEL in model_0050.pth model_0100.pth model_0200.pth model_0400.pth model_0600.pth model_0800.pth model_1000.pth model_1200.pth model_1499.pth ; do
     python test_load_ssim.py \
         --model_dir=${HEAD}/fabric-01_2021/model=dcgan56x56-rnn_size=256-predictor-posterior-prior-rnn_layers=2-1-1-n_past=2-n_future=5-lr=0.0020-g_dim=128-z_dim=10-last_frame_skip=False-beta=0.0001000-act-cond-1/${MODEL}  \
         --data_path=/home/seita/cloth-visual-mpc/logs/demos-fabric-01-2021-epis_400_COMBINED.pkl

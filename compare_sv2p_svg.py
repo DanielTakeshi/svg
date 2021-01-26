@@ -31,8 +31,10 @@ np.set_printoptions(precision=3)
 pp = argparse.ArgumentParser()
 pp.add_argument('--datatype', default='')
 pp.add_argument('--svg_model', default='model_0050')
+pp.add_argument('--results_tail', default='results_svg_2')
 args = pp.parse_args()
 assert args.datatype in ['fabric-random', 'fabric-01-2021'], args.datatype
+assert args.results_tail in ['results_svg_1', 'results_svg_2'], args.results_tail
 
 
 # ----------------------------------------------------------------------------- #
@@ -40,7 +42,7 @@ assert args.datatype in ['fabric-random', 'fabric-01-2021'], args.datatype
 # ----------------------------------------------------------------------------- #
 HORIZON = 5
 HEAD_SV2P = '/home/seita/cloth-visual-mpc/logs/'
-HEAD_SVG  = '/home/seita/svg/results_svg/'
+HEAD_SVG  = join('/home/seita/svg/', args.results_tail)
 
 # fr = fabric_random. Always load even though we might be using the other data.
 TAIL_SV2P_01_fr = 'demos-fabric-random-epis_400_COMBINED_PREDS_SV2P_01.pkl'

@@ -194,7 +194,8 @@ pastebin][6] which accumulates my results.
 
 
 **UPDATE**: actually to save in a way that makes it easier to load this later,
-please use the `SVG.py` script.
+please use the `SVG.py` script. The correspondign predictions are [in this
+patebin][7], only partially done.
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
@@ -202,3 +203,4 @@ please use the `SVG.py` script.
 [4]:https://github.com/edenton/svg/issues/10
 [5]:https://github.com/ryanhoque/cloth-visual-mpc/commit/d17e30e7edaa9409c5317a86cb9fb263674b0f65
 [6]:https://pastebin.com/raw/rigB93wj
+[7]:https://pastebin.com/raw/9GvUAmbp
