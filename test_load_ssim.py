@@ -27,7 +27,7 @@ if __name__ == "__main__":
     _, tail = os.path.split(opt.model_dir)
     tail = tail.replace('.pth', '')
     assert 'cloth-visual-mpc/logs/' in opt.data_path, opt.data_path
-    outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg_2_tmp/')
+    outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg_2/')
     outname = (outname).replace('.pkl', f'_PREDS_SVG-LP_{tail}.pkl')
 
     # Load, usually from the cloth-visual-mpc/logs directory.

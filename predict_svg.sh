@@ -5,7 +5,7 @@
 # ---------------------------------------------------------------------------------------------------------- #
 
 #HEAD=/data/svg/logs-Jan-24-SVG-1500epochs
-HEAD=/data/svg/logs-Jan26-inprogress
+HEAD=/data/svg/logs-Jan27-fabric-v1-v2-models-1500-epochs
 
 # ---------------------------------------- #
 # dold (old data), 80-20 train-valid split #
