@@ -2,6 +2,7 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import torch.nn.functional as F
 import argparse
 import os
 import random
@@ -15,6 +16,19 @@ import numpy as np
 import sys
 import pickle
 from collections import defaultdict
+
+
+class ActionEmbedding(nn.Module):
+
+    def __init__(self, act_dim=4, final_dim=32):
+        super(ActionEmbedding, self).__init__()
+        self.fc1 = nn.Linear(act_dim, 32)
+        self.fc2 = nn.Linear(32, final_dim)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
 
 class SVG:
@@ -79,22 +93,33 @@ class SVG:
         in_postr = opt.g_dim
         in_prior = opt.g_dim
         if opt.action_cond:
-            in_frame += opt.act_dim
-            #in_postr += opt.act_dim # NOT the posterior!
-            in_prior += opt.act_dim
+            if opt.act_design == 1:
+                in_frame += opt.act_dim
+                #in_postr += opt.act_dim # NOT the posterior!
+                in_prior += opt.act_dim
+            elif opt.act_design == 2:
+                in_frame += 32
+                in_prior += 32
+            else:
+                raise ValueError(opt.act_design)
         self.frame_predictor = lstm_models.lstm(         in_frame, opt.g_dim, opt.rnn_size, opt.predictor_rnn_layers, opt.batch_size)
         self.posterior       = lstm_models.gaussian_lstm(in_postr, opt.z_dim, opt.rnn_size, opt.posterior_rnn_layers, opt.batch_size)
         self.prior           = lstm_models.gaussian_lstm(in_prior, opt.z_dim, opt.rnn_size, opt.prior_rnn_layers,     opt.batch_size)
+        self.act_embed       = ActionEmbedding(act_dim=opt.act_dim, final_dim=32)
 
         # HERE is where we can load.
         if opt.model_dir != '':
             self.frame_predictor.load_state_dict( checkpoint['frame_predictor'] )
             self.posterior.load_state_dict( checkpoint['posterior'] )
             self.prior.load_state_dict( checkpoint['prior'] )
+            if opt.act_design == 2:
+                self.act_embed.load_state_dict( checkpoint['act_embed'] )
         else:
             self.frame_predictor.apply(utils.init_weights)
             self.posterior.apply(utils.init_weights)
             self.prior.apply(utils.init_weights)
+            if opt.act_design == 2:
+                self.act_embed.apply(utils.init_weights)
 
         if opt.model == 'dcgan':
             if opt.image_width == 56:
@@ -137,6 +162,7 @@ class SVG:
         self.prior_optimizer           = opt.optimizer(self.prior.parameters(),           lr=opt.lr, betas=(opt.beta1, 0.999))
         self.encoder_optimizer         = opt.optimizer(self.encoder.parameters(),         lr=opt.lr, betas=(opt.beta1, 0.999))
         self.decoder_optimizer         = opt.optimizer(self.decoder.parameters(),         lr=opt.lr, betas=(opt.beta1, 0.999))
+        self.act_embed_optimizer       = opt.optimizer(self.act_embed.parameters(),       lr=opt.lr, betas=(opt.beta1, 0.999))
 
         # Transfer to GPU.
         self.frame_predictor.cuda()
@@ -144,6 +170,7 @@ class SVG:
         self.prior.cuda()
         self.encoder.cuda()
         self.decoder.cuda()
+        self.act_embed.cuda()
 
         # Define MSE criterion, also transfer to GPU.
         self.mse_criterion = nn.MSELoss()
@@ -265,6 +292,8 @@ class SVG:
                 # Given a_{i-1} we use that with Enc(prior_image) to get (predicted) x_i.
                 if x_acts is not None:
                     x_a = x_acts[i-1].cuda()
+                    if opt.act_design == 2:
+                        x_a = self.act_embed(x_a)
                     h = torch.cat([h, x_a], dim=1)  # overrides h
 
                 h = h.detach()
@@ -388,6 +417,8 @@ class SVG:
             # move this later (but ordering must be h, then x_a, then z_t).
             if x_acts is not None:
                 x_a = x_acts[i-1].cuda()
+                if opt.act_design == 2:
+                    x_a = self.act_embed(x_a)
                 h = torch.cat([h, x_a], dim=1)
 
             h_target, _ = h_target
@@ -454,6 +485,7 @@ class SVG:
         self.prior.zero_grad()
         self.encoder.zero_grad()
         self.decoder.zero_grad()
+        self.act_embed.zero_grad()
 
         # initialize the hidden state.
         self.frame_predictor.hidden = self.frame_predictor.init_hidden()
@@ -474,6 +506,8 @@ class SVG:
             # Daniel: action conditioning. Updating h: (B,g_dim) --> (B, g_dim+4).
             if x_acts is not None:
                 x_a = x_acts[i-1].cuda()
+                if opt.act_design == 2:
+                    x_a = self.act_embed(x_a)
                 h = torch.cat([h, x_a], dim=1)
 
             z_t, mu, logvar = self.posterior(h_target)
@@ -497,6 +531,7 @@ class SVG:
         self.prior_optimizer.step()
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
+        self.act_embed_optimizer.step()
 
         # Daniel: shouldn't these be divided by npast + nfuture MINUS one? For loop starts at 1.
         mse_cpu = mse.data.cpu().numpy() / (opt.n_past + opt.n_future - 1)
@@ -520,6 +555,7 @@ class SVG:
             self.prior.train()
             self.encoder.train()
             self.decoder.train()
+            self.act_embed.train()
             epoch_mse = 0
             epoch_kld = 0
             epoch_mse_c = 0
@@ -572,6 +608,7 @@ class SVG:
             self.decoder.eval()
             self.posterior.eval()
             self.prior.eval()
+            self.act_embed.eval()
 
             # Daniel: should also be adding testing set statistics.
             x = next(testing_batch_generator)
@@ -642,6 +679,7 @@ class SVG:
         self.frame_predictor.eval()
         self.posterior.eval()
         self.prior.eval()
+        self.act_embed.eval()
         self.frame_predictor.hidden = self.frame_predictor.init_hidden()
         self.posterior.hidden       = self.posterior.init_hidden()
         self.prior.hidden           = self.prior.init_hidden()
@@ -672,6 +710,8 @@ class SVG:
                 x_a = x_acts[:, i-1, :]
                 x_a = np.array(x_a).astype(np.float32)
                 x_a = torch.from_numpy(x_a).cuda()
+                if opt.act_design == 2:
+                    x_a = self.act_embed(x_a)
                 h = torch.cat([h, x_a], dim=1)  # overrides h
 
             h = h.detach()
@@ -704,22 +744,28 @@ class SVG:
         opt = self.opt
         tail = 'model_{}.pth'.format( str(epoch).zfill(4) )
         model_path = os.path.join(opt.log_dir, tail)
-        #torch.save({
-        #    'encoder':          self.encoder,
-        #    'decoder':          self.decoder,
-        #    'frame_predictor':  self.frame_predictor,
-        #    'posterior':        self.posterior,
-        #    'prior':            self.prior,
-        #    'opt':              opt},
-        #    model_path)
-        torch.save({
-            'encoder':          self.encoder.state_dict(),
-            'decoder':          self.decoder.state_dict(),
-            'frame_predictor':  self.frame_predictor.state_dict(),
-            'posterior':        self.posterior.state_dict(),
-            'prior':            self.prior.state_dict(),
-            'opt':              opt,
-            }, model_path)
+
+        if opt.act_design == 1:
+            torch.save({
+                'encoder':          self.encoder.state_dict(),
+                'decoder':          self.decoder.state_dict(),
+                'frame_predictor':  self.frame_predictor.state_dict(),
+                'posterior':        self.posterior.state_dict(),
+                'prior':            self.prior.state_dict(),
+                'opt':              opt,
+                }, model_path)
+        elif opt.act_design == 2:
+            torch.save({
+                'encoder':          self.encoder.state_dict(),
+                'decoder':          self.decoder.state_dict(),
+                'frame_predictor':  self.frame_predictor.state_dict(),
+                'posterior':        self.posterior.state_dict(),
+                'prior':            self.prior.state_dict(),
+                'act_embed':        self.act_embed.state_dict(),  # new
+                'opt':              opt,
+                }, model_path)
+        else:
+            raise ValueError(opt.act_design)
 
 
 if __name__ == "__main__":
@@ -754,7 +800,8 @@ if __name__ == "__main__":
     parser.add_argument('--last_frame_skip', action='store_true', help='if true, skip connections go between frame t and frame t+t rather than last ground truth frame')
     parser.add_argument('--action_cond', action='store_true', default=False, help='true to make this action conditioned')
     parser.add_argument('--act_dim', type=int, default=4, help='Need to adjust architecture a bit')
-    parser.add_argument('--act_design', type=int, default=1, help='TODO(daniel) if we try multiple designs.')
+    parser.add_argument('--act_design', type=int, default=2,
+        help='design 1: no learned action embedding. design 2: learned action embedding of size 32.')
     opt = parser.parse_args()
 
     svg = SVG(opt)
