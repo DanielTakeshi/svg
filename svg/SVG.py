@@ -33,11 +33,12 @@ class SVG:
             checkpoint = torch.load(opt.model_dir) # pass in ENTIRE path, including specific epoch if desired.
             optimizer = opt.optimizer
             model_dir = opt.model_dir
+            batch_size = opt.batch_size
             opt = checkpoint['opt']     # Pretty sure we need this to properly define our classes before loading state dicts
             self.opt = opt              # Actually this won't matter too much, but I think it's safe to have.
             opt.optimizer = optimizer
             opt.model_dir = model_dir
-            opt.batch_size = 1          # NOTE Let's override this FOR INFERENCE since otherwise the RNNs expect the same train batch size.
+            opt.batch_size = batch_size  # We need to override this FOR INFERENCE, otherwise RNNs expect the train batch_size.
             opt.log_dir = '%s/continued' % opt.log_dir
         else:
             name = 'model=%s%dx%d-rnn_size=%d-predictor-posterior-prior-rnn_layers=%d-%d-%d-n_past=%d-n_future=%d-lr=%.4f-g_dim=%d-z_dim=%d-last_frame_skip=%s-beta=%.7f%s' % (
@@ -609,17 +610,32 @@ class SVG:
         frames should just be 1 -- check if that's not the case. See data/fabrics.py and the
         utils.normalize_data for correct shapes.
 
-        AH! Just remembered that we have to get the range into [0,1].
+        AH! Don't forget we have to get the pixel range into [0,1] before passing as input.
 
-        UPDATE: actually now n_acts for prediction is of shape (N,H,4) where N is the CEM
-        population size. We'll have to increase the batch size to 2000 and replicate the
-        input image. Or maybe use a different method entirely. The input image is (56,56,4),
-        which is the same for cloth-visual-mpc and here. Just have to adjust actions.
+        -----------------------------------------------------------------------------------------
+        ----------------------------- (after looking at SV2P code) ------------------------------
+        -----------------------------------------------------------------------------------------
+        Now `x_acts` for prediction is of shape (N,H,4) where N is the CEM pop size. Need to increase
+        the batch size to 2000 (and replicate the input image?), and to make actions have batch size.
+        For SV2P, with CEM and pop size 2000, horizon 5, we have: `predict(x, x_acts)` where:
+
+            x:      (56, 56, 4)    // values are in between 0 and 255, so definitely pixel-level
+            x_acts: (2000, 5, 4)   // values between (-1, 1) as expected
+
+        Here B=2000, batch size, so we have to replicate x. Then, the prediction returns:
+
+            trajs:  (2000, 1, 5, 56, 56, 4)  // values NOT necessarily between 0 and 255 (but they are roughly so)
+
+        The "1" for `trajs` is the "nparts" parameter of SV2P, which seems to always be set at 1.
+        So, basically, we have to return the trajs which are already multiplied by 255, and make
+        sure we stick a 1 in there after rearranging dimensions.
+        -----------------------------------------------------------------------------------------
         """
         opt = self.opt
         #assert opt.n_past == 1  # If predicting we want n_past=1 but usually training was different.
         # Actually that's a good point we should not be using the same opt, let's specify as args.
         gen_seq = []
+        assert x_acts.shape == (opt.batch_size, n_future, 4), x_acts.shape
 
         self.encoder.eval()
         self.decoder.eval()
@@ -632,8 +648,12 @@ class SVG:
 
         # Reshape single context frame. If we actually do more than 1 context frame, we should
         # instead format `x` like we normally do during training by having it as a list, etc.
-        x_in = x.transpose(2,0,1)[np.newaxis,:]
-        x_in = np.array(x_in).astype(np.float32) / 255.0     # Only major processing was div by 255.
+        x_in = x.transpose(2,0,1)[np.newaxis,:]             # x --> (1, 4, 56, 56)
+        if opt.batch_size > 1:
+            # If batch size > 1, i.e., the leading dimension of x_acts, then we have to repeat the image
+            # https://stackoverflow.com/questions/50865463/  BTW repeat=B means dim is B, not B+1. :)
+            x_in = np.repeat(x_in, opt.batch_size, axis=0)  # x --> (B, 4, 56, 56)
+        x_in = np.array(x_in).astype(np.float32) / 255.0    # Only major processing is div by 255.
         x_in = torch.from_numpy(x_in).cuda()
 
         # Remmeber, we normally have n_eval here, which is n_past + n_future.
@@ -644,10 +664,12 @@ class SVG:
             else:
                 h, _ = h
 
-            # Daniel: action conditioning. Updating h: (B,g_dim) --> (B, g_dim+4). B=1 here.
+            # Daniel: action conditioning. Updating h: (B, g_dim) --> (B, g_dim+4).
+            # Therefore x_a (before concat) must be reshaped to (B, 4).
             # Given a_{i-1} we use that with Enc(prior_image) to get (predicted) x_i.
             if x_acts is not None:
-                x_a = (x_acts[i-1])[np.newaxis,:]
+                #x_a = (x_acts[i-1])[np.newaxis,:]
+                x_a = x_acts[:, i-1, :]
                 x_a = np.array(x_a).astype(np.float32)
                 x_a = torch.from_numpy(x_a).cuda()
                 h = torch.cat([h, x_a], dim=1)  # overrides h
@@ -666,11 +688,11 @@ class SVG:
                 x_in = self.decoder([h, skip]).detach()
                 gen_seq.append(x_in.data.cpu().numpy())
 
-        # Reshape it to match desired output for consistency with SV2P.
-        prediction = np.array(gen_seq)              # (n_future, 1, 4, 56, 56)
-        prediction = np.squeeze(prediction)         # (n_future, 4, 56, 56)
-        prediction = prediction.transpose(0,2,3,1)  # (n_future, 56, 56, 4)
-        # NOTE this value is within (0,1), should multiply by 255 if desired.
+        # Reshape it to match desired output for consistency with SV2P. Note: H = n_future
+        prediction = np.array(gen_seq)                      # (H, B, 4, 56, 56)
+        prediction = prediction.transpose(1,0,3,4,2)        # (B, H, 56, 56, 4)
+        prediction = np.expand_dims(prediction, axis=1)     # (B, 1, H, 56, 56, 4)
+        prediction = prediction * 255                       # Values from (0,1) --> (0,255)
         return prediction
 
     def save(self, epoch):

@@ -8,7 +8,6 @@ import sys
 import pickle
 import random
 import numpy as np
-#import SVG
 from svg.SVG import SVG
 
 
@@ -17,6 +16,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_dir', default='')
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--n_future',  default=5)
+    parser.add_argument('--batch_size',  default=1)
     parser.add_argument('--data_path', default='', help='not used in SVG, just for this script')
     opt = parser.parse_args()
     svg_model = SVG(opt)
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     _, tail = os.path.split(opt.model_dir)
     tail = tail.replace('.pth', '')
     assert 'cloth-visual-mpc/logs/' in opt.data_path, opt.data_path
-    outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg_2/')
+    outname = (opt.data_path).replace('cloth-visual-mpc/logs/', 'svg/results_svg_2_tmp/')
     outname = (outname).replace('.pkl', f'_PREDS_SVG-LP_{tail}.pkl')
 
     # Load, usually from the cloth-visual-mpc/logs directory.
@@ -41,19 +41,20 @@ if __name__ == "__main__":
         preds = []
         acts = []
         contexts = []
+        # NOTE here the batch size B=1 here.
         for i in range(num_steps + 1 - opt.n_future):
-            currim = episode['obs'][i]                      # shape (56, 56, 4), type uint8
-            curracts = all_acts[i:i + opt.n_future]         # shape (H, 4)
-            pred = svg_model.predict(x=currim, x_acts=curracts)   # shape (H, 56, 56, 4), float32, in (0,1)
-            preds.append(pred)                              # ALL preds: \hat{x}_{i+1 : i+H}
-            acts.append(curracts)                           # input actions: a_{i : i+H-1}
+            currim = episode['obs'][i]                              # shape (56, 56, 4), type uint8
+            curracts = all_acts[i:i + opt.n_future][np.newaxis,:]   # shape (B, H, 4)
+            pred = svg_model.predict(x=currim, x_acts=curracts)     # shape (B, 1, H, 56, 56, 4), float32, in (0,255)
+            pred = np.squeeze(pred)                                 # Should now be (H, 56, 56, 4) due to B=1.
+            preds.append(pred)                                      # ALL preds from B=1: \hat{x}_{i+1 : i+H}
+            acts.append(curracts[0])                                # input actions: a_{i : i+H-1}
             contexts.append(currim)
         # With my way of saving, shapes are (N, H, 56, 56, 4) and (N, H, 4)
         # where N=num_steps-H+1. (All predictions given this episode + horizon)
         gt_obs_all = np.array(episode['obs']).astype(np.uint8)
         contexts_all = np.array(contexts).astype(np.uint8)
-        preds_all = np.array(preds) * 255.0     # NOTE: multiply by 255 since output is all in (0,1).
-        preds_all = preds_all.astype(np.uint8)
+        preds_all = np.array(preds).astype(np.uint8)    # output already in (0,255) range.
         curr_output = {'pred': preds_all,
                        'act': np.array(acts),
                        'gt_obs': gt_obs_all,
