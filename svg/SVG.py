@@ -128,8 +128,8 @@ class SVG:
         num_params_enc = utils.numel(self.encoder)
         num_params_dec = utils.numel(self.decoder)
         print('\nNumber of parameters:')
-        print(f'  encoder: {num_params_enc}')
-        print(f'  decoder: {num_params_dec}')
+        print('  encoder: {}'.format(num_params_enc))
+        print('  decoder: {}'.format(num_params_dec))
 
         # Optimizers for the models.
         self.frame_predictor_optimizer = opt.optimizer(self.frame_predictor.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))

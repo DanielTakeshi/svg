@@ -89,7 +89,7 @@ def load_dataset(opt):
                 image_size=56,
                 use_actions=opt.action_cond)
     else:
-        raise ValueError(f'{opt.dataset} not supported')
+        raise ValueError('{} not supported'.format(opt.dataset))
 
     return train_data, test_data
 
