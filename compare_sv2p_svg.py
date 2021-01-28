@@ -31,10 +31,11 @@ np.set_printoptions(precision=3)
 pp = argparse.ArgumentParser()
 pp.add_argument('--datatype', default='')
 pp.add_argument('--svg_model', default='model_0050')
-pp.add_argument('--results_tail', default='results_svg_2')
+pp.add_argument('--results_tail', default='results_svg_3', help='see predict_svg.sh')
 args = pp.parse_args()
 assert args.datatype in ['fabric-random', 'fabric-01-2021'], args.datatype
-assert args.results_tail in ['results_svg_1', 'results_svg_2'], args.results_tail
+assert args.results_tail in ['results_svg_1', 'results_svg_2', 'results_svg_3'], args.results_tail
+# NOTE(daniel): we hard-code saving into frand_3 and fnew_3.
 
 
 # ----------------------------------------------------------------------------- #
@@ -414,11 +415,11 @@ def save_images_get_ssim(datatype):
         sstr = str(num_obs).zfill(2)
         img_path = f'preds_{datatype}_ep_{estr}_obs_{sstr}_rgbd.png'
         if datatype == 'fabric-random':
-            head_dir = join('results_frand', args.svg_model)
+            head_dir = join('results_frand_3', args.svg_model)
             os.makedirs(head_dir, exist_ok=True)
             img_path = join(head_dir, img_path)
         else:
-            head_dir = join('results_fnew', args.svg_model)
+            head_dir = join('results_fnew_3', args.svg_model)
             os.makedirs(head_dir, exist_ok=True)
             img_path = join(head_dir, img_path)
         #t_img.save(img_path)  # RGB, but we want BGR, hence do these two:

@@ -706,7 +706,6 @@ class SVG:
             # Therefore x_a (before concat) must be reshaped to (B, 4).
             # Given a_{i-1} we use that with Enc(prior_image) to get (predicted) x_i.
             if x_acts is not None:
-                #x_a = (x_acts[i-1])[np.newaxis,:]
                 x_a = x_acts[:, i-1, :]
                 x_a = np.array(x_a).astype(np.float32)
                 x_a = torch.from_numpy(x_a).cuda()
