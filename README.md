@@ -191,14 +191,27 @@ python predict_svg_lp.py \
 ```
 
 Look at `results_svg/` for the pickle file output, then other results
-directories for the IMAGES formed after running `compare_sv2p_svg.py`.
-To measure quality of predictions, look at `compare_sv2p_svg.py` and [this
-pastebin][6] which accumulates my results.
-
+directories for the IMAGES formed after running `compare_sv2p_svg.py`.  To
+measure quality of predictions, look at `compare_sv2p_svg.py`.
 
 **UPDATE**: actually to save in a way that makes it easier to load this later,
-please use the `SVG.py` script. The correspondign predictions are [in this
-patebin][7], only partially done.
+please use `svg/SVG.py` script.
+
+I have several predictions:
+
+- [Results][6] for "version 1" of models, which passes in the raw action, and
+  saves using the non-recommended Pytorch way.
+
+- [Results][7] for "version 2" of models, which passes in the raw action, and
+  saves using the RECOMMENDED way for PyTorch, and uses `svg/SVG.py`.
+
+- Results (TODO) for "version 3" of models, which passes in a LEARNED EMBEDDING
+  of the raw action (it makes it from 4D to 32D), and saves using the
+  RECOMMENDED way for PyTorch, and uses `svg/SVG.py`.
+
+In all cases, the above results (version 1, version 2, version 3) apply to BOTH
+FabricV1 and FabricV2. The "version" is not the version of the fabric dataset,
+but the version of the set of neural networks.
 
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
