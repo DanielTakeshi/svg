@@ -213,6 +213,19 @@ In all cases, the above results (version 1, version 2, version 3) apply to BOTH
 FabricV1 and FabricV2. The "version" is not the version of the fabric dataset,
 but the version of the set of neural networks.
 
+With "version 3" and the learned action predictor, here are the SVG parameters:
+
+```
+Number of parameters:
+  frame p:   1129344
+  posterior: 564500
+  prior:     572692
+  encoder:   3808448
+  decoder:   6564676
+  act_embed: 1216
+total: 12640876
+```
+
 [1]:https://github.com/edenton/svg/pull/6
 [2]:https://stackoverflow.com/questions/55178229/importerror-cannot-import-name-structural-similarity-error
 [3]:https://pytorch.org/get-started/previous-versions/

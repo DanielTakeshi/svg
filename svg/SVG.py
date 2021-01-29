@@ -49,7 +49,7 @@ class SVG:
             model_dir = opt.model_dir
             batch_size = opt.batch_size
             opt = checkpoint['opt']     # Pretty sure we need this to properly define our classes before loading state dicts
-            self.opt = opt              # Actually this won't matter too much, but I think it's safe to have.
+            self.opt = opt              # Important! We use self.opt in the prediction code.
             opt.optimizer = optimizer
             opt.model_dir = model_dir
             opt.batch_size = batch_size  # We need to override this FOR INFERENCE, otherwise RNNs expect the train batch_size.
@@ -150,11 +150,20 @@ class SVG:
             self.encoder.apply(utils.init_weights)
             self.decoder.apply(utils.init_weights)
 
-        num_params_enc = utils.numel(self.encoder)
-        num_params_dec = utils.numel(self.decoder)
-        print('\nNumber of parameters:')
-        print('  encoder: {}'.format(num_params_enc))
-        print('  decoder: {}'.format(num_params_dec))
+        #np_fp    = utils.numel(self.frame_predictor)
+        #np_post  = utils.numel(self.posterior)
+        #np_prior = utils.numel(self.prior)
+        #np_enc   = utils.numel(self.encoder)
+        #np_dec   = utils.numel(self.decoder)
+        #np_act   = utils.numel(self.act_embed)
+        #print('\nNumber of parameters:')
+        #print('  frame p:   {}'.format(np_fp))
+        #print('  posterior: {}'.format(np_post))
+        #print('  prior:     {}'.format(np_prior))
+        #print('  encoder:   {}'.format(np_enc))
+        #print('  decoder:   {}'.format(np_dec))
+        #print('  act_embed: {}'.format(np_act))
+        #print('total: {}'.format(np_fp + np_post + np_prior + np_enc + np_dec + np_act))
 
         # Optimizers for the models.
         self.frame_predictor_optimizer = opt.optimizer(self.frame_predictor.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
