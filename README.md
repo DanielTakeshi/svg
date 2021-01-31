@@ -205,9 +205,10 @@ I have several predictions:
 - [Results][7] for "version 2" of models, which passes in the raw action, and
   saves using the RECOMMENDED way for PyTorch, and uses `svg/SVG.py`.
 
-- Results (TODO) for "version 3" of models, which passes in a LEARNED EMBEDDING
+- [Results][8] for "version 3" of models, which passes in a LEARNED EMBEDDING
   of the raw action (it makes it from 4D to 32D), and saves using the
-  RECOMMENDED way for PyTorch, and uses `svg/SVG.py`.
+  RECOMMENDED way for PyTorch, and uses `svg/SVG.py`. There are only a few
+  models here, but SVG ends up overfitting badly so we used earlier models.
 
 In all cases, the above results (version 1, version 2, version 3) apply to BOTH
 FabricV1 and FabricV2. The "version" is not the version of the fabric dataset,
@@ -233,3 +234,4 @@ total: 12640876
 [5]:https://github.com/ryanhoque/cloth-visual-mpc/commit/d17e30e7edaa9409c5317a86cb9fb263674b0f65
 [6]:https://pastebin.com/raw/rigB93wj
 [7]:https://pastebin.com/raw/9GvUAmbp
+[8]:https://pastebin.com/raw/fMqSwnXe
